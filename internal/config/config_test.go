@@ -95,6 +95,9 @@ func TestLoadErrorsHideValues(t *testing.T) {
 			t.Fatalf("unsafe error: %v", err)
 		}
 	}
+	if _, err := Load(strings.NewReader(strings.Repeat(" ", 1<<20) + "x")); err == nil {
+		t.Fatal("oversize configuration accepted")
+	}
 }
 
 func TestOptionalHealthAndAddresses(t *testing.T) {

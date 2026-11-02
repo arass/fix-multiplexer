@@ -46,7 +46,11 @@ func (m *Message) Clone() (gateway.Message, error) {
 			if err := parsed.Body.GetGroup(group); err != nil {
 				return nil, errors.New("cannot reconstruct repeating group")
 			}
-			out.Body.SetGroup(group)
+			rebuilt, err := copyGroup(group, f.Fields)
+			if err != nil {
+				return nil, err
+			}
+			out.Body.SetGroup(rebuilt)
 		} else {
 			v, err := parsed.Body.GetBytes(tag)
 			if err != nil {
@@ -56,6 +60,39 @@ func (m *Message) Clone() (gateway.Message, error) {
 		}
 	}
 	return &Message{raw: append([]byte(nil), m.raw...), typ: m.typ, dict: m.dict, out: out}, nil
+}
+
+// Parsed group fields in this engine retain tail slices for GetGroup. Their
+// Write method must not be reused directly: rebuild each element with setters.
+func copyGroup(source *quickfix.RepeatingGroup, fields []*datadictionary.FieldDef) (*quickfix.RepeatingGroup, error) {
+	out := quickfix.NewRepeatingGroup(source.Tag(), template(fields))
+	for i := 0; i < source.Len(); i++ {
+		from, to := source.Get(i), out.Add()
+		for _, f := range fields {
+			tag := quickfix.Tag(f.Tag())
+			if !from.Has(tag) {
+				continue
+			}
+			if f.IsGroup() {
+				nested := quickfix.NewRepeatingGroup(tag, template(f.Fields))
+				if err := from.GetGroup(nested); err != nil {
+					return nil, errors.New("cannot reconstruct nested group")
+				}
+				copy, err := copyGroup(nested, f.Fields)
+				if err != nil {
+					return nil, err
+				}
+				to.SetGroup(copy)
+			} else {
+				v, err := from.GetBytes(tag)
+				if err != nil {
+					return nil, errors.New("cannot reconstruct group field")
+				}
+				to.SetBytes(tag, append([]byte(nil), v...))
+			}
+		}
+	}
+	return out, nil
 }
 
 func template(fields []*datadictionary.FieldDef) quickfix.GroupTemplate {

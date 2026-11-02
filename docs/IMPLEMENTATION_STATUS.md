@@ -2,7 +2,7 @@
 
 ## Current state
 
-Phase 1 implemented; Phase 2 validation in progress. Runnable gateway and synthetic local three-client demo exist. Retention enforcement, operational hardening and independent-engine interoperability are pending. User decisions in CODEX_TASK.md take precedence over earlier suggestions.
+Phase 1 and initial Phase 2 forwarding implemented. Runnable gateway and synthetic local three-client demo exist, including on-wire groups and PossDup submissions. Retention enforcement, operational hardening and independent-engine interoperability are pending. User decisions in CODEX_TASK.md take precedence over earlier suggestions.
 
 ## Completed
 
@@ -24,7 +24,7 @@ Phase 1 implemented; Phase 2 validation in progress. Runnable gateway and synthe
 
 ## Next action
 
-Continue Phase 2 regression/integration tests, then Phase 3 retention and restart/replay. Implemented injected engine-independent router and session registry, independent client workers, bounded message queues plus shared 64MiB byte budget, session-generation checks, per-target reconstruction, standard gateway BusinessMessageReject and valid inbound PossDup forwarding. Engine source review and initial license notices recorded in docs/PRIOR_ART.md. No engine modifications.
+Begin Phase 3 retention and restart/replay; complete outstanding matrix scenarios alongside subsequent phases. Implemented injected engine-independent router and session registry, independent client workers, bounded message queues plus shared 64MiB byte budget, session-generation checks, per-target reconstruction, standard gateway BusinessMessageReject and valid inbound PossDup forwarding. Engine source review and initial license notices recorded in docs/PRIOR_ART.md. No engine modifications.
 
 Milestone 1a checks: native go fmt, go vet ./..., go test ./..., coverage and CLI sample validation passed. Config statement coverage: 99.1%. Linux go test -race ./... passed. Actual Dockerfile built and application container -check-config passed. CLI coverage is not included in the core target. Added CI and Docker packaging. Socket integration coverage remains pending.
 
@@ -39,6 +39,8 @@ Milestone 1b: native unit tests, vet and real-socket integration passed. Linux r
 5. Phase 5: independent-engine interoperability, clean-checkout demo, dependency/license review. Owner must settle project license before release.
 
 For every completed implementation step: update this file and affected task documents, run applicable checks, record outcomes, then commit locally. Do not claim checks passed without execution. Do not include unrelated IDE files in commits.
+
+Milestone 2: extended real-socket demo to inbound PossDup orders and repeating groups in reports, preserved on every target. Found and fixed parsed-group tail-slice serialization in our adapter; added a full wire parse/validate round-trip reproducer. Config loading now rejects inputs exceeding 1MiB instead of accepting a truncated document. Fast core coverage remains config 99.1%, routing/sessions 100%. Native vet/unit tests and a three-second message-copy fuzz run passed (110,137 executions on final run). Rebuilt container; Linux race/integration and actual container smoke passed. Full TEST_PLAN matrix is not complete: recovery/restart, retention, management, resource boundaries and independent parser are pending.
 
 ## Resume
 

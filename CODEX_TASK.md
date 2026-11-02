@@ -102,6 +102,8 @@ Progress: Phase 1 implemented in milestones 1a/1b: strict config, CLI, engine-in
 
 **Phase 2: forwarding and fanout.** Forward supported app messages and broadcast reports; correctly rebuild FIX sessions; preserve groups and custom tags; enforce allowlist and connection-state behavior; add unit and real-socket integration tests.
 
+Progress: initial implementation and regressions pass for scalar/custom fields, dictionary-defined nested groups, fresh session headers, supported-type policy, queue saturation, slow-client isolation, live-only disconnection and upstream FIX errors. Socket demo includes valid inbound PossDup orders and grouped broadcast reports. Full acceptance matrix remains open across subsequent phases; no release claim.
+
 **Phase 3: reconnect/recovery.** Durable session stores; resend behavior; logon/logoff and reconnect; upstream outage; no offline application queue; restarts; duplicate avoidance; configurable session reset strategy. Add recovery integration tests and failure-injection tests.
 
 **Phase 4: safety and maintainability.** Bounded resources and retention, client deprovisioning, credentials/TLS, metrics, health checks, graceful shutdown, container build, documentation and contribution guide. Add race, fuzz/property and soak tests.

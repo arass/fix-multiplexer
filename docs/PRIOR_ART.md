@@ -21,7 +21,7 @@ Engine API findings from application.go, registry.go, session.go, message.go, fi
 - Route only inbound FromApp. Outbound resends also invoke ToApp; that callback must never route.
 - SendToTarget persists and queues a new message. A nil result is local acceptance, not socket delivery or venue business acceptance. The engine can queue while disconnected, so application connectivity checks are essential.
 - File stores default to fsync but are not automatically age/size bounded. The gateway must own limits and close stores explicitly.
-- FieldMap.CopyInto copies only the first TagValue of a group. The adapter uses dictionary-derived RepeatingGroup/GetGroup/SetGroup reconstruction instead, with nested-group regression coverage; no engine patch or parser fork.
+- FieldMap.CopyInto copies only the first TagValue of a group. Parsed group fields also retain tail slices, so directly serializing parsed groups duplicates fields. The adapter uses dictionary-derived GetGroup and reconstructs every scalar/nested element into fresh engine groups using setters. Unit and actual wire round-trip regressions cover this; no engine patch or parser fork.
 - The engine parser handles length-delimited XMLData specially but does not support embedded SOH in EncodedText. Ordinary encoded text works. Embedded-SOH bodies are unsupported and the reconstruction regression asserts visible failure.
 - No StartTime/EndTime means no scheduled daily boundary. ResetOnLogon/Logout/Disconnect are explicitly disabled. Reset requires coordinated maintenance.
 

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"fix-multiplexer/internal/config"
 	"fix-multiplexer/internal/fixadapter"
@@ -82,6 +83,15 @@ func Run(ctx context.Context, out io.Writer) error {
 	}()
 	for _, cl := range c.Downstream.Clients {
 		p := testfix.NewPeer()
+		// Valid inbound PossDup traffic must still be forwarded. The other FIX
+		// boundary regenerates its own replay flags and timing headers.
+		p.BeforeSend = func(m *quickfix.Message, _ quickfix.SessionID) error {
+			if m.IsMsgTypeOf("D") {
+				m.Header.SetBool(43, true)
+				m.Header.SetString(122, time.Now().UTC().Add(-time.Second).Format("20060102-15:04:05.000"))
+			}
+			return nil
+		}
 		s, id, e := testfix.Settings(cl.Sender, c.Downstream.Target, c.Downstream.Listen, dictionary, true)
 		if e != nil {
 			return e
@@ -114,9 +124,25 @@ func Run(ctx context.Context, out io.Writer) error {
 		if err = quickfix.SendToTarget(order, id); err != nil {
 			return err
 		}
-		received, e := testfix.Receive(ctx, venue.Messages)
-		if e != nil {
-			return e
+		var received *quickfix.Message
+		var e error
+		select {
+		case received = <-venue.Messages:
+		case rej := <-peers[idx].Messages:
+			typ, _ := rej.MsgType()
+			return fmt.Errorf("demo order received application rejection (type %s)", typ)
+		case rej := <-peers[idx].Admin:
+			if rej.IsMsgTypeOf("3") {
+				reason, _ := rej.Body.GetString(58)
+				tag, _ := rej.Body.GetString(371)
+				return fmt.Errorf("demo synthetic order rejected: %s (tag %s)", reason, tag)
+			}
+			received, e = testfix.Receive(ctx, venue.Messages)
+			if e != nil {
+				return errors.New("demo waiting for venue order timed out")
+			}
+		case <-ctx.Done():
+			return errors.New("demo waiting for venue order timed out")
 		}
 		value, _ := received.Body.GetString(11)
 		custom, _ := received.Body.GetString(5001)
@@ -127,13 +153,22 @@ func Run(ctx context.Context, out io.Writer) error {
 	}
 	report := testfix.Report("unknown-order-is-still-broadcast")
 	report.Body.SetString(5001, "custom-report")
+	partyTemplate := quickfix.GroupTemplate{quickfix.GroupElement(448), quickfix.GroupElement(447), quickfix.GroupElement(452)}
+	parties := quickfix.NewRepeatingGroup(453, partyTemplate)
+	for _, party := range []string{"SYNTHETIC_A", "SYNTHETIC_B"} {
+		g := parties.Add()
+		g.SetString(448, party)
+		g.SetString(447, "D")
+		g.SetInt(452, 1)
+	}
+	report.Body.SetGroup(parties)
 	if err = quickfix.SendToTarget(report, venueID); err != nil {
 		return err
 	}
 	for idx, p := range peers {
-		m, e := testfix.Receive(ctx, p.Messages)
+		m, e := waitReport(ctx, p, venue)
 		if e != nil {
-			return e
+			return fmt.Errorf("demo waiting for client report (forwarded=%d failed=%d recipients=%d): %w", mux.Router.Counters.Forwarded.Load(), mux.Router.Counters.Failed.Load(), mux.Router.Counters.Recipients.Load(), e)
 		}
 		target, _ := m.Header.GetString(56)
 		sender, _ := m.Header.GetString(49)
@@ -141,6 +176,14 @@ func Run(ctx context.Context, out io.Writer) error {
 		custom, _ := m.Body.GetString(5001)
 		if target != ids[idx].SenderCompID || sender != c.Downstream.Target || id != "unknown-order-is-still-broadcast" || custom != "custom-report" {
 			return errors.New("demo fanout fidelity failed")
+		}
+		got := quickfix.NewRepeatingGroup(453, partyTemplate)
+		if e = m.Body.GetGroup(got); e != nil || got.Len() != 2 {
+			return errors.New("demo repeating group lost")
+		}
+		last, _ := got.Get(1).GetString(448)
+		if last != "SYNTHETIC_B" {
+			return errors.New("demo group order changed")
 		}
 	}
 	// Prove live-only selection after a real Logout, with the remaining peers active.
@@ -197,6 +240,29 @@ func Run(ctx context.Context, out io.Writer) error {
 	}
 	_, err = fmt.Fprintln(out, "PASS: 3 clients, 1 upstream, unchanged orders/custom fields, live-only fanout, gateway FIX outage error")
 	return err
+}
+
+func waitReport(ctx context.Context, p, venue *testfix.Peer) (*quickfix.Message, error) {
+	for {
+		select {
+		case m := <-p.Messages:
+			return m, nil
+		case m := <-venue.Admin:
+			if m.IsMsgTypeOf("3") {
+				tag, _ := m.Body.GetString(371)
+				reason, _ := m.Body.GetString(373)
+				return nil, fmt.Errorf("mock venue received session reject: tag=%s reason=%s", tag, reason)
+			}
+		case m := <-p.Admin:
+			if m.IsMsgTypeOf("3") {
+				tag, _ := m.Body.GetString(371)
+				reason, _ := m.Body.GetString(373)
+				return nil, fmt.Errorf("mock client received session reject: tag=%s reason=%s", tag, reason)
+			}
+		case <-ctx.Done():
+			return nil, errors.New("report timed out")
+		}
+	}
 }
 
 func Wait(ctx context.Context, r *sessions.Registry, predicate func([]sessions.State) bool) error {

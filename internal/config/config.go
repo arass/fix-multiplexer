@@ -2,6 +2,7 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -116,7 +117,11 @@ func Defaults() Config {
 
 func Load(r io.Reader) (Config, error) {
 	c := Defaults()
-	d := yaml.NewDecoder(io.LimitReader(r, 1<<20))
+	data, err := io.ReadAll(io.LimitReader(r, (1<<20)+1))
+	if err != nil || len(data) > 1<<20 {
+		return Config{}, errors.New("configuration unreadable or exceeds 1MiB")
+	}
+	d := yaml.NewDecoder(bytes.NewReader(data))
 	d.KnownFields(true)
 	if err := d.Decode(&c); err != nil {
 		return Config{}, errors.New("invalid YAML configuration (check syntax and field names)")

@@ -8,11 +8,12 @@ import (
 	"testing"
 
 	"fix-multiplexer/internal/config"
+	"fix-multiplexer/internal/testfix"
 	"github.com/quickfixgo/quickfix"
 	"github.com/quickfixgo/quickfix/datadictionary"
 )
 
-func dictionary(t *testing.T) *datadictionary.DataDictionary {
+func dictionary(t testing.TB) *datadictionary.DataDictionary {
 	t.Helper()
 	d, err := datadictionary.Parse("../../spec/FIX44.xml")
 	if err != nil {
@@ -111,6 +112,48 @@ func TestCopyGroupsAndSessionIsolation(t *testing.T) {
 	if v != "original-client" || !bytes.Equal(raw, parsed.Bytes()) {
 		t.Fatal("input or sibling mutated")
 	}
+}
+
+func TestGroupedReportWireRoundTrip(t *testing.T) {
+	d := dictionary(t)
+	m := testfix.Report("synthetic")
+	for tag, value := range map[quickfix.Tag]string{8: "FIX.4.4", 49: "SOURCE", 56: "DEST", 34: "2", 52: "20260101-12:00:00.000"} {
+		m.Header.SetString(tag, value)
+	}
+	m.Body.SetString(5001, "custom-report")
+	tmpl := quickfix.GroupTemplate{quickfix.GroupElement(448), quickfix.GroupElement(447), quickfix.GroupElement(452)}
+	g := quickfix.NewRepeatingGroup(453, tmpl)
+	for _, id := range []string{"A", "B"} {
+		p := g.Add()
+		p.SetString(448, id)
+		p.SetString(447, "D")
+		p.SetInt(452, 1)
+	}
+	m.Body.SetGroup(g)
+	parse := func(m *quickfix.Message) *quickfix.Message {
+		t.Helper()
+		p := quickfix.NewMessage()
+		if err := quickfix.ParseMessageWithDataDictionary(p, bytes.NewBuffer(m.Bytes()), nil, d); err != nil {
+			t.Fatal(err)
+		}
+		if err := quickfix.NewValidator(quickfix.ValidatorSettings{CheckFieldsOutOfOrder: true, RejectInvalidMessage: true, CheckFieldsHaveValues: true}, d, nil).Validate(p); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	s, err := Snapshot(parse(m), d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cl, err := s.Clone()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := cl.(*Message).out
+	for tag, value := range map[quickfix.Tag]string{8: "FIX.4.4", 49: "NEW_SOURCE", 56: "NEW_DEST", 34: "2", 52: "20260101-12:00:00.000"} {
+		out.Header.SetString(tag, value)
+	}
+	parse(out)
 }
 
 func TestEncodedAndErrors(t *testing.T) {
