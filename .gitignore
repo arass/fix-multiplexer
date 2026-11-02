@@ -1,0 +1,5 @@
+.tools/
+.idea/
+.gocache/
+state/
+coverage.out

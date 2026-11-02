@@ -78,7 +78,7 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the proposed failure seman
 
 1. A mock FIX acceptor acting as the upstream counterparty.
 2. The FIX multiplexer with one upstream initiator and multiple downstream acceptor sessions.
-3. Two independent FIX test clients.
+3. Three independent FIX test clients.
 4. Automated smoke tests proving that orders reach the upstream counterparty and application-level reports reach connected clients.
 
 Once implemented, this section should be replaced with **verified** build, configuration, and startup commands, including the exact Docker Compose invocation and sample FIX session identifiers.

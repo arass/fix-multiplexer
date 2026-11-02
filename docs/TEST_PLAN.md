@@ -52,6 +52,8 @@ The goal is comprehensive coverage of **our code and guarantees**, not testing Q
 
 ## Cross-engine interoperability
 
+Additional confirmed regressions: a valid inbound PossDup application message is forwarded, including recovery of a genuinely missing message; outbound replay callbacks do not cause new business routing. Test gateway-generated standard FIX errors during upstream outage, with request references and no implication of venue acceptance. Test the configurable 8h downstream history window, expiry/reset behavior, independent upstream retention, and persistence of retirement across restart.
+
 - At least one test using a **different engine** as a peer, e.g. QuickFIX/J test initiator or acceptor, rather than only QuickFIX/Go on both ends.
 - Verify Logon/Logout, sequence gaps and resend, groups/custom tags, and reconnect with persisted state.
 - Use published open-source FIX dictionaries and explicitly document any venue-specific extensions.

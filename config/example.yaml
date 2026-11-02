@@ -31,6 +31,7 @@ fanout:
   mode: live-only
   app_message_types: ["8", "9", "j"] # illustrative only; Codex must define exact documented policy
 retention:
+  downstream_replay_window: 8h # proposed schema; expiry requires explicit reset policy
   inactive_client_ttl: 168h
   prune_active_sessions: false
   disk_warn_bytes: 1073741824

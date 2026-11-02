@@ -6,6 +6,10 @@ Each downstream client has a distinct FIX session with the multiplexer (acceptor
 
 ## Message handling and boundaries
 
+Confirmed policy: deliver valid inbound PossDup application messages; the flag is not a reason to discard them. Outbound replay callbacks must not initiate a second routing operation. Duplicate business delivery remains possible and clients must tolerate it.
+
+If forwarding cannot proceed, send a standard FIX error identified as originating at the gateway, preferably BusinessMessageReject where applicable. Do not generate a venue execution report. Test request correlation and the chosen message-type-specific behavior before declaring it supported.
+
 1. **Downstream inbound:** engine validates transport, FIX session state and sequence. Application callback sends a validated business message to a bounded upstream forwarding path. Forwarding happens as a *new* application message on upstream session. Preserve business fields and custom tags, and do not preserve session ownership headers.
 2. **Upstream inbound:** engine validates transport and FIX session state. Application callback clones business fields for each logged-on downstream session. Send each clone through the engine for fresh session headers and sequence numbers.
 3. **Admin:** both ends independently process FIX session management. A downstream `ResendRequest (35=2)` is served from *that downstream session's* store, not relayed upstream. An upstream resend is independent and must not accidentally invoke a second business fanout.
@@ -43,6 +47,8 @@ Enforce upstream application send order via a defined serialization point or doc
 A FIX message store contains outbound replay history as well as sequence-state metadata. Messages sent while a client was logged on may require replay. For a retired client, preserving all historical bytes forever is inappropriate; blindly deleting older messages from an *active* session's store can make protocol-correct resend impossible.
 
 Recommended v1 policy:
+
+- Configure downstream replay history with an 8h default, independently of inactive-client TTL. No promise of reconstruction beyond the configured window. Expiry must lead to explicit reset/reprovisioning when needed; do not silently remove required history from active sessions. Upstream retention is a separate policy.
 
 - Provision named/allowlisted clients with a configured idle TTL (e.g., 7 days for UAT). Record last logout/connection/disconnection time.
 - Keep session stores for disconnected-but-not-yet-expired clients, within configured monitoring limits. No application backlog is created while disconnected.
