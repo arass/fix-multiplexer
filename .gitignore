@@ -1,5 +1,6 @@
 .tools/
 .idea/
+.codex/config.toml
 .gocache/
 state/
 coverage.out

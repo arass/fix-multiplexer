@@ -19,7 +19,7 @@ Specification-only repository; no gateway implementation yet. Go is confirmed. U
 - Built ignored .tools/preflight/Dockerfile as fix-multiplexer-preflight. Its go vet and go test -race passed, including a loopback listener. Running that container also passed. These are toolchain checks, not gateway acceptance tests.
 - Native Windows race testing lacks a C compiler on PATH; use the tested Linux container route.
 - Git index writes require elevated permission. First local milestone committed as 3bfb5d3. No remote push.
-- No IntelliJ-specific MCP terminal/filesystem tool is currently exposed; repository shell access works.
+- IntelliJ MCP verified at the user-provided local Streamable HTTP endpoint. Initialization and tools/list succeeded, exposing terminal, run configuration, inspection, refactoring, file and Git tools. Saved project connection in ignored .codex/config.toml; native Codex registration may require extension restart. Shell-level MCP access is verified already.
 - Java/Maven are absent from PATH. Plan an independent FIX peer in a container during Phase 5.
 
 ## Next action
