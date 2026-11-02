@@ -1,0 +1,39 @@
+# NONFUNCTIONAL EXAMPLE: top-level YAML schema to be implemented and validated by Codex.
+# No real credentials, private endpoints, or public listener defaults.
+service:
+  name: fix-multiplexer
+  mode: nonproduction
+  bind: 127.0.0.1
+  health_bind: 127.0.0.1:8081
+  max_clients: 20
+  max_message_bytes: 1048576
+  upstream_queue_messages: 1000
+  downstream_queue_messages_per_client: 1000
+upstream:
+  fix_version: FIX.4.4
+  host: 127.0.0.1
+  port: 9880
+  sender_comp_id: MULTIPLEXER
+  target_comp_id: MOCKVENUE
+  store_dir: ./state/upstream
+  tls_enabled: false # local mock only; verify server certificates when enabled
+  # Use a file or env secret reference in the actual implementation.
+downstream:
+  fix_version: FIX.4.4
+  listen: 127.0.0.1:9879
+  target_comp_id: MULTIPLEXER
+  clients:
+    - sender_comp_id: DEV_A
+    - sender_comp_id: DEV_B
+    - sender_comp_id: QA_1
+  store_dir: ./state/downstream
+fanout:
+  mode: live-only
+  app_message_types: ["8", "9", "j"] # illustrative only; Codex must define exact documented policy
+retention:
+  inactive_client_ttl: 168h
+  prune_active_sessions: false
+  disk_warn_bytes: 1073741824
+logging:
+  mode: metadata
+  redact_tags: ["89", "91", "96", "553", "554", "925", "1402", "1404"]
