@@ -27,7 +27,7 @@ The goal is comprehensive coverage of **our code and guarantees**, not testing Q
 | U19 | Storage failure | Corrupt/unwritable/full store produces safe error/not-ready or session disablement; never silently discards replay data; restart/error path explicit. |
 | U20 | Lifecycle | Graceful shutdown drains or fails bounded pending work explicitly, logs out sessions when feasible, closes stores and stops listeners; repeated shutdown safe. |
 | U21 | Reset | Session reset requires deliberate handshake/policy after prune; invalid preserved-state/new-state mix rejected. |
-| U22 | Recovery adapter | Resent message is recognized by FIX engine/session logic and does not cause unintended double-dispatch; define behavior for PossDup and application-level duplicate detection limits. |
+| U22 | Recovery adapter | Valid inbound application messages with PossDup are forwarded; outbound replay callbacks never initiate new routing; no application-level deduplication or exactly-once guarantee. |
 
 ## Integration tests: real sockets, self-hosted mock FIX peers
 

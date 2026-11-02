@@ -11,9 +11,20 @@ Specification-only repository; no gateway implementation yet. Go is confirmed. U
 - Checked tooling: Git installed and commit identity configured; Docker CLI installed but Linux engine unavailable; Go not initially installed or on PATH; Java/Maven not found on PATH.
 - Verified GitHub access with approved elevated git ls-remote after sandbox network access failed.
 
-## In progress
+## Preflight results
 
-- Install Go and preflight build, dependency-download, race-test, and container permissions.
+- WinGet installation failed because its package source data is missing. Instead downloaded the official Go 1.27.3 Windows archive, verified its SHA256 against go.dev release metadata, and installed under ignored .tools/go. Use ./.tools/go/bin/go.exe (PATH is unchanged).
+- Go module downloads require elevated network access in this sandbox. Downloaded QuickFIX/Go v0.9.12 into .tools/modcache for source inspection; no project dependency pin has been committed yet.
+- Docker Desktop Linux engine started successfully; server version 28.3.2. Pulled official golang:1.27.3 image.
+- Built ignored .tools/preflight/Dockerfile as fix-multiplexer-preflight. Its go vet and go test -race passed, including a loopback listener. Running that container also passed. These are toolchain checks, not gateway acceptance tests.
+- Native Windows race testing lacks a C compiler on PATH; use the tested Linux container route.
+- Git index writes require elevated permission. First local milestone committed as 3bfb5d3. No remote push.
+- No IntelliJ-specific MCP terminal/filesystem tool is currently exposed; repository shell access works.
+- Java/Maven are absent from PATH. Plan an independent FIX peer in a container during Phase 5.
+
+## Next action
+
+Begin Phase 1 implementation and complete current engine/prior-art review. Engine source inspection has begun (message copying, replay callbacks, reject construction, store APIs and license); no gateway code or project test results exist yet.
 
 ## Pending milestones
 

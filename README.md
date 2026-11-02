@@ -59,6 +59,8 @@ The proposed implementation uses [QuickFIX/Go](https://github.com/quickfixgo/qui
 
 FIX session recovery is **not the same as end-to-end message recovery**. Each session's engine may resend messages already entered into its outgoing sequence stream. However, a client that is disconnected during a broadcast will not receive messages that were never sent to its session.
 
+The planned downstream replay-history window defaults to a configurable **8 hours**, separately from upstream retention. Older history is not guaranteed; explicit reset/reprovisioning is required when retained history cannot satisfy recovery. Valid inbound `PossDup` application messages are forwarded, and downstream applications must tolerate duplicates. During upstream outages, the gateway returns an identified, standard FIX error rather than a venue execution report.
+
 To prevent abandoned development sessions from consuming disk indefinitely, the design requires configurable retention and safe cleanup of inactive session stores. Expired state may require an explicitly coordinated FIX sequence reset on the next connection.
 
 Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the proposed failure semantics and [docs/TEST_PLAN.md](docs/TEST_PLAN.md) for recovery and cleanup testing.

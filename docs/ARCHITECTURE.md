@@ -36,7 +36,7 @@ Enforce upstream application send order via a defined serialization point or doc
 | Client reconnects after previously sent message lost in transit | Its FIX session can resend messages already persisted/assigned to its own outgoing sequence stream. |
 | Client reconnects after offline period | It does not receive messages never assigned to its session while it was offline. |
 | Upstream disconnected | Gateway becomes not-ready and visibly fails new downstream submissions. It cannot recover application messages counterparty never makes available. |
-| Upstream reconnects with gap | Rely on upstream engine's FIX resend protocol; no duplicate business dispatch from replay handling. |
+| Upstream reconnects with gap | Rely on upstream engine's FIX resend protocol; forward valid inbound PossDup messages; outbound replay callbacks do not initiate business dispatch. |
 | Gateway crashes | Durable stores recover assigned sequences and replay-eligible traffic, but there may be an ambiguous in-flight send window. No exactly-once guarantee. |
 | One fanout target fails | Other targets still receive reports; failure is logged/metricized. No atomicity guarantee. |
 | Stale session cleaned | Only offline stores are eligible; session must be reset/reprovisioned on next use in a mutually agreed way. |
