@@ -1,10 +1,12 @@
 package fixadapter
 
 import (
+	"io"
 	"testing"
 	"time"
 
 	"fix-multiplexer/internal/gateway"
+	"fix-multiplexer/internal/observability"
 	"fix-multiplexer/internal/sessions"
 	"github.com/quickfixgo/quickfix"
 )
@@ -18,6 +20,7 @@ func TestApplicationRoutingPossDupAndReplay(t *testing.T) {
 	defer router.Close()
 	d := dictionary(t)
 	a := &Application{Registry: r, Router: router, Upstream: u, UpstreamDictionary: d, DownstreamDictionary: d, MaxMessageBytes: 4096, Username: "synthetic-user", Password: "synthetic-password", ClientPasswords: map[string]string{client.String(): "synthetic-client"}}
+	a.Observer = observability.New(io.Discard)
 	a.OnCreate(client)
 	a.OnLogon(client)
 	a.OnLogon(u)

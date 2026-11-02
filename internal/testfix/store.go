@@ -10,10 +10,14 @@ import (
 
 // Fault injection may inspect/change sequence state from the test goroutine.
 // Serialize that access with the peer engine; never patch the engine itself.
-type lockedFactory struct{}
+type lockedFactory struct{ base quickfix.MessageStoreFactory }
 
-func (lockedFactory) Create(id quickfix.SessionID) (quickfix.MessageStore, error) {
-	s, err := quickfix.NewMemoryStoreFactory().Create(id)
+func (f lockedFactory) Create(id quickfix.SessionID) (quickfix.MessageStore, error) {
+	base := f.base
+	if base == nil {
+		base = quickfix.NewMemoryStoreFactory()
+	}
+	s, err := base.Create(id)
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,8 @@ service:
   max_message_bytes: 1048576
   upstream_queue_messages: 1000
   downstream_queue_messages_per_client: 1000
+  startup_timeout: 15s
+  shutdown_timeout: 10s
 upstream:
   fix_version: FIX.4.4
   host: 127.0.0.1

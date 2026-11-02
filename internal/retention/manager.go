@@ -19,6 +19,7 @@ var (
 	ErrStorage = errors.New("gateway: durable store unavailable or budget exhausted")
 	ErrRetired = errors.New("gateway: session retired; coordinate reset/reprovision while stopped")
 	ErrExpired = errors.New("gateway: requested replay exceeds configured history window; coordinate reset")
+	ErrLegacy  = errors.New("gateway: legacy root-level FIX store detected; migrate preserved state offline before startup")
 )
 
 type State struct {
@@ -37,6 +38,7 @@ type Manager struct {
 	now                 func() time.Time
 	limit, sessionLimit int64
 	failed              atomic.Bool
+	used                atomic.Int64
 	closed              bool
 	maintenance         bool
 	CleanupCount        atomic.Uint64
@@ -74,6 +76,18 @@ func open(roots []string, limit, sessionLimit int64, now func() time.Time, maint
 			return nil, ErrStorage
 		}
 		m.roots = append(m.roots, path)
+		files, err := os.ReadDir(path)
+		if err != nil {
+			m.Close()
+			return nil, ErrStorage
+		}
+		for _, file := range files {
+			switch filepath.Ext(file.Name()) {
+			case ".body", ".header", ".session", ".senderseqnums", ".targetseqnums":
+				m.Close()
+				return nil, ErrLegacy
+			}
+		}
 	}
 	if _, err := m.usage(); err != nil {
 		m.Close()
@@ -134,7 +148,7 @@ func (m *Manager) Connected(id string, active bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	e, ok := m.entries[id]
-	if !ok || m.closed || e.state.Retired {
+	if !ok || m.closed || (active && e.state.Retired) {
 		return ErrStorage
 	}
 	e.state.Active = active
@@ -154,8 +168,9 @@ func (m *Manager) CanUse(id string) bool {
 	e, ok := m.entries[id]
 	return !m.closed && ok && !e.state.Retired && !m.failed.Load()
 }
-func (m *Manager) Healthy() bool { return !m.failed.Load() }
-func (m *Manager) Fail()         { m.failed.Store(true) }
+func (m *Manager) Healthy() bool      { return !m.failed.Load() }
+func (m *Manager) CachedUsage() int64 { return m.used.Load() }
+func (m *Manager) Fail()              { m.failed.Store(true) }
 
 // Write accounts for body/index/sequence overhead before delegating to the engine.
 // Store errors are latched until restart; replay-required bytes are never pruned.
@@ -218,6 +233,9 @@ func (m *Manager) Prune(id string, ttl time.Duration, dryRun bool) (bool, error)
 	if err := m.save(e); err != nil {
 		return false, ErrStorage
 	}
+	if err := storeDirectory(e.path); err != nil {
+		return false, ErrStorage
+	}
 	if _, err := inventory(e.path); err != nil {
 		return false, ErrStorage
 	}
@@ -242,6 +260,9 @@ func (m *Manager) Reset(id string) error {
 	if err := m.save(e); err != nil {
 		return ErrStorage
 	}
+	if err := storeDirectory(e.path); err != nil {
+		return ErrStorage
+	}
 	if _, err := inventory(e.path); err != nil {
 		return ErrStorage
 	}
@@ -250,6 +271,20 @@ func (m *Manager) Reset(id string) error {
 	}
 	e.state = State{LastDisconnect: m.now()}
 	if err := m.save(e); err != nil {
+		return ErrStorage
+	}
+	return nil
+}
+
+func storeDirectory(path string) error {
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return ErrStorage
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return ErrStorage
 	}
 	return nil
@@ -309,6 +344,7 @@ func (m *Manager) usage() (int64, error) {
 		}
 		total += n
 	}
+	m.used.Store(total)
 	if total > m.limit && !m.maintenance {
 		return total, ErrStorage
 	}

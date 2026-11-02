@@ -113,6 +113,9 @@ func TestPersistentRestartAndIndependentResend(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.Stop()
+	if r.Pending.Usage() != 0 {
+		t.Fatal("engine queue credits did not follow actual wire sends")
+	}
 	wait(t, ctx, client.Logouts)
 	wait(t, ctx, venue.Logouts)
 	r, err = New(c)

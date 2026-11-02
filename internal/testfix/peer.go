@@ -8,8 +8,10 @@ import (
 	"errors"
 	"net"
 	"strconv"
+	"sync"
 
 	"github.com/quickfixgo/quickfix"
+	"github.com/quickfixgo/quickfix/store/file"
 )
 
 type Peer struct {
@@ -74,22 +76,63 @@ func Listen(p *Peer, l net.Listener, s *quickfix.Settings) (*quickfix.Acceptor, 
 	if err != nil {
 		return nil, err
 	}
-	a.SetNewListenerCallback(func(string, *tls.Config) (net.Listener, error) { return l, nil })
+	a.SetNewListenerCallback(func(_ string, secure *tls.Config) (net.Listener, error) {
+		if secure != nil {
+			return tls.NewListener(l, secure), nil
+		}
+		return l, nil
+	})
 	if err = a.Start(); err != nil {
 		return nil, err
 	}
 	return a, nil
 }
 
-func Connect(p *Peer, s *quickfix.Settings) (*quickfix.Initiator, error) {
-	i, err := quickfix.NewInitiator(p, lockedFactory{}, s, quickfix.NewNullLogFactory())
+type Initiator struct {
+	*quickfix.Initiator
+	stores []quickfix.MessageStore
+	once   sync.Once
+}
+
+func (i *Initiator) Stop() {
+	i.once.Do(func() {
+		i.Initiator.Stop()
+		for _, s := range i.stores {
+			_ = s.Close()
+		}
+	})
+}
+
+type trackingFactory struct {
+	base   quickfix.MessageStoreFactory
+	stores *[]quickfix.MessageStore
+}
+
+func (f trackingFactory) Create(id quickfix.SessionID) (quickfix.MessageStore, error) {
+	s, err := f.base.Create(id)
+	if err == nil {
+		*f.stores = append(*f.stores, s)
+	}
+	return s, err
+}
+
+func Connect(p *Peer, s *quickfix.Settings) (*Initiator, error) {
+	return connect(p, s, lockedFactory{})
+}
+func ConnectDurable(p *Peer, s *quickfix.Settings) (*Initiator, error) {
+	return connect(p, s, lockedFactory{base: file.NewStoreFactory(s)})
+}
+func connect(p *Peer, s *quickfix.Settings, store quickfix.MessageStoreFactory) (*Initiator, error) {
+	result := &Initiator{}
+	i, err := quickfix.NewInitiator(p, trackingFactory{store, &result.stores}, s, quickfix.NewNullLogFactory())
 	if err != nil {
 		return nil, err
 	}
 	if err = i.Start(); err != nil {
 		return nil, err
 	}
-	return i, nil
+	result.Initiator = i
+	return result, nil
 }
 
 func Receive[T any](ctx context.Context, ch <-chan T) (T, error) {

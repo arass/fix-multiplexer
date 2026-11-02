@@ -1,6 +1,7 @@
 package retention
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -98,6 +99,16 @@ func TestOfflineInventoryIsReadOnlyAndCorruptionVisible(t *testing.T) {
 	if _, err = m.Register("b", root); err == nil {
 		t.Fatal("metadata directory accepted")
 	}
+	blocked := filepath.Join(root, key("blocked"))
+	if err = os.WriteFile(blocked, []byte("unexpected synthetic file"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = m.Register("blocked", root); err == nil {
+		t.Fatal("store creation replaced an unexpected file")
+	}
+	if _, ok := m.State("blocked"); ok {
+		t.Fatal("failed store creation registered a session")
+	}
 	dir, err := m.Register("c", root)
 	if err != nil {
 		t.Fatal(err)
@@ -114,5 +125,55 @@ func TestOfflineInventoryIsReadOnlyAndCorruptionVisible(t *testing.T) {
 	}
 	if _, err = m.LoadExisting("c", root); err == nil {
 		t.Fatal("closed inventory")
+	}
+}
+
+func TestLegacyStateIsNeverSilentlyReinitialized(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "FIX.4.4-MUX-CLIENT.body")
+	if err := os.WriteFile(path, []byte("synthetic legacy history"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open([]string{root}, 10000, 1000, time.Now); !errors.Is(err, ErrLegacy) {
+		t.Fatal("legacy state accepted for sequence reset", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatal("legacy history removed")
+	}
+}
+
+func TestUnexpectedStoreFileIsNotDeleted(t *testing.T) {
+	for _, operation := range []string{"prune", "reset"} {
+		t.Run(operation, func(t *testing.T) {
+			root := t.TempDir()
+			now := time.Now()
+			m, err := OpenMaintenance([]string{root}, 10000, 1000, func() time.Time { return now })
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer m.Close()
+			path, err := m.Register("client", root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			if err = os.WriteFile(path, []byte("unexpected synthetic file"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			now = now.Add(time.Hour)
+			if operation == "prune" {
+				_, err = m.Prune("client", time.Hour, false)
+			} else {
+				err = m.Reset("client")
+			}
+			if err == nil {
+				t.Fatal("unexpected file accepted as a store directory")
+			}
+			if _, err = os.Stat(path); err != nil {
+				t.Fatal("unexpected file deleted")
+			}
+		})
 	}
 }

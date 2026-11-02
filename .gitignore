@@ -4,3 +4,5 @@
 .gocache/
 state/
 coverage.out
+coverage
+interop/quickfixj/target/

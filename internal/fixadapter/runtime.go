@@ -1,32 +1,45 @@
 package fixadapter
 
 import (
+	"crypto/tls"
 	"errors"
+	"io"
+	"net"
 	"sync"
 	"time"
 
 	"fix-multiplexer/internal/config"
 	"fix-multiplexer/internal/gateway"
+	"fix-multiplexer/internal/observability"
 	"fix-multiplexer/internal/retention"
 	"fix-multiplexer/internal/sessions"
+	"fix-multiplexer/internal/transport"
 	"github.com/quickfixgo/quickfix"
 	"github.com/quickfixgo/quickfix/datadictionary"
 	"github.com/quickfixgo/quickfix/store/file"
 )
 
 type Runtime struct {
-	Registry         *sessions.Registry
-	Router           *gateway.Router
-	Application      *Application
-	acceptor         *quickfix.Acceptor
-	initiator        *quickfix.Initiator
-	mu               sync.Mutex
-	started, stopped bool
-	stores           []quickfix.MessageStore
-	Stores           *retention.Manager
+	Registry          *sessions.Registry
+	Router            *gateway.Router
+	Application       *Application
+	acceptor          *quickfix.Acceptor
+	initiator         *quickfix.Initiator
+	mu                sync.Mutex
+	started, stopped  bool
+	stopErr           error
+	stores            []quickfix.MessageStore
+	Stores            *retention.Manager
+	Observer          *observability.Recorder
+	storeWarn         int64
+	Transport         *transport.Pool
+	UpstreamTransport *transport.Pool
+	Pending           *transport.Pending
+	bridge            *transport.Bridge
+	listenerFactory   quickfix.NewListenerCallback
 }
 
-func New(c config.Config) (*Runtime, error) {
+func New(c config.Config, observer ...*observability.Recorder) (*Runtime, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
@@ -86,25 +99,36 @@ func New(c config.Config) (*Runtime, error) {
 		ids[id.String()] = id
 		clients = append(clients, id.String())
 	}
-	r := &Runtime{}
+	r := &Runtime{Observer: observability.New(io.Discard), storeWarn: c.Retention.DiskWarnBytes}
+	if len(observer) > 0 && observer[0] != nil {
+		r.Observer = observer[0]
+	}
+	a.Observer = r.Observer
+	r.Pending = transport.NewPending(64<<20, 2<<20)
+	a.Pending = r.Pending
+	r.Transport = transport.New(c.Service.MaxClients*2, c.Service.MaxMessageBytes, func() { r.Observer.EngineError("downstream_transport") })
 	r.Stores, err = retention.Open([]string{c.Upstream.StoreDir, c.Downstream.StoreDir}, c.Retention.DiskLimitBytes, c.Retention.SessionLimitBytes, time.Now)
 	if err != nil {
 		return nil, err
 	}
+	paths := make(map[quickfix.SessionID]string)
 	for id := range ids {
 		sid := ids[id]
 		root := c.Downstream.StoreDir
-		settings := d.SessionSettings()
 		if sid == a.Upstream {
 			root = c.Upstream.StoreDir
-			settings = u.SessionSettings()
 		}
 		path, e := r.Stores.Register(id, root)
 		if e != nil {
 			r.Stores.Close()
 			return nil, e
 		}
-		settings[sid].Set("FileStorePath", path)
+		paths[sid] = path
+	}
+	u, d, err = settingsWithPaths(c, paths)
+	if err != nil {
+		r.Stores.Close()
+		return nil, errors.New("cannot bind isolated store settings")
 	}
 	a.Stores = r.Stores
 	r.Registry = sessions.New(enabled, time.Now)
@@ -120,11 +144,14 @@ func New(c config.Config) (*Runtime, error) {
 			r.cleanup(false)
 		}
 	}()
-	r.acceptor, err = quickfix.NewAcceptor(a, trackingFactory{base: file.NewStoreFactory(d), stores: &r.stores, manager: r.Stores, window: c.Retention.DownstreamWindow}, d, quickfix.NewNullLogFactory())
+	if err = r.prepareUpstreamTransport(c, u); err != nil {
+		return nil, err
+	}
+	r.acceptor, err = quickfix.NewAcceptor(a, trackingFactory{base: file.NewStoreFactory(d), stores: &r.stores, manager: r.Stores, window: c.Retention.DownstreamWindow}, d, logFactory{recorder: r.Observer, pool: r.Transport, pending: r.Pending})
 	if err != nil {
 		return nil, errors.New("cannot initialize downstream FIX sessions")
 	}
-	r.initiator, err = quickfix.NewInitiator(a, trackingFactory{base: file.NewStoreFactory(u), stores: &r.stores, manager: r.Stores, window: c.Retention.UpstreamWindow}, u, quickfix.NewNullLogFactory())
+	r.initiator, err = quickfix.NewInitiator(a, trackingFactory{base: file.NewStoreFactory(u), stores: &r.stores, manager: r.Stores, window: c.Retention.UpstreamWindow}, u, logFactory{recorder: r.Observer, pool: r.UpstreamTransport, pending: r.Pending})
 	if err != nil {
 		return nil, errors.New("cannot initialize upstream FIX session")
 	}
@@ -137,6 +164,24 @@ func (r *Runtime) Start() error {
 	if r.started || r.stopped {
 		return errors.New("runtime already started or stopped")
 	}
+	r.bridge.Start()
+	factory := r.listenerFactory
+	if factory == nil {
+		factory = func(address string, c *tls.Config) (net.Listener, error) {
+			if c != nil {
+				return tls.Listen("tcp", address, c)
+			}
+			return net.Listen("tcp", address)
+		}
+	}
+	r.acceptor.SetNewListenerCallback(func(address string, c *tls.Config) (net.Listener, error) {
+		l, err := factory(address, c)
+		if err != nil {
+			return nil, err
+		}
+		return r.Transport.Wrap(l), nil
+	})
+	r.acceptor.SetConnectionValidator(connectionValidator{r.Transport})
 	if err := r.acceptor.Start(); err != nil {
 		r.cleanup(false)
 		r.stopped = true
@@ -152,33 +197,67 @@ func (r *Runtime) Start() error {
 	return nil
 }
 
+func (r *Runtime) Snapshot() observability.Snapshot {
+	g := r.Router
+	s := observability.Snapshot{Ready: g.Ready() && r.Stores.Healthy(), Forwarded: g.Counters.Forwarded.Load(), Failed: g.Counters.Failed.Load(), Dropped: g.Counters.Dropped.Load(), Recipients: g.Counters.Recipients.Load(), Replays: r.Observer.Replay.Load(), EngineErrors: r.Observer.EngineErrors.Load(), Cleanups: r.Stores.CleanupCount.Load(), QueueBytes: g.QueueBytes(), QueueDepth: g.QueueDepth(), StoreBytes: r.Stores.CachedUsage()}
+	s.StoreWarning = s.StoreBytes >= r.storeWarn
+	s.EngineQueueBytes = r.Pending.Usage()
+	for _, state := range r.Registry.Snapshot() {
+		s.Sessions = append(s.Sessions, observability.Session{ID: state.ID, LoggedOn: state.LoggedOn, Enabled: state.Enabled})
+	}
+	return s
+}
+
 // SetListenerFactory injects a reserved or bounded listener before Start.
 func (r *Runtime) SetListenerFactory(factory quickfix.NewListenerCallback) {
-	r.acceptor.SetNewListenerCallback(factory)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.listenerFactory = factory
 }
-func (r *Runtime) Stop() {
+func (r *Runtime) Stop() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.stopped {
-		return
+		return r.stopErr
 	}
-	r.cleanup(r.started)
+	r.stopErr = r.cleanup(r.started)
 	r.stopped = true
+	return r.stopErr
 }
 
-func (r *Runtime) cleanup(started bool) {
+func (r *Runtime) cleanup(started bool) error {
+	var failed bool
 	r.Router.Close()
 	if started {
 		r.initiator.Stop()
 		r.acceptor.Stop()
 	}
+	r.Transport.CloseAll()
+	if r.bridge != nil {
+		r.bridge.Close()
+	}
 	for _, id := range r.Application.created {
 		_ = quickfix.UnregisterSession(id)
 	}
 	for _, s := range r.stores {
-		_ = s.Close()
+		if s.Close() != nil {
+			failed = true
+		}
 	}
-	_ = r.Stores.Close()
+	if r.Stores.Close() != nil {
+		failed = true
+	}
+	if failed {
+		r.Observer.EngineError("durable_shutdown")
+		return errors.New("gateway: durable shutdown failed; inspect state before restart")
+	}
+	return nil
+}
+
+type connectionValidator struct{ pool *transport.Pool }
+
+func (v connectionValidator) Validate(c net.Conn, id quickfix.SessionID) error {
+	return v.pool.Bind(id.String(), c)
 }
 
 type trackingFactory struct {

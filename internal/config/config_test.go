@@ -42,6 +42,7 @@ func TestValidation(t *testing.T) {
 		{"queue", func(c *Config) { c.Service.UpstreamQueue = 0 }},
 		{"downstream-queue", func(c *Config) { c.Service.DownstreamQueue = 5000 }},
 		{"timeout", func(c *Config) { c.Service.ShutdownTimeout = 0 }},
+		{"startup-timeout", func(c *Config) { c.Service.StartupTimeout = 0 }},
 		{"version", func(c *Config) { c.Upstream.Version = "FIXT.1.1" }},
 		{"cross-version", func(c *Config) { c.Downstream.Version = "FIX.4.2" }},
 		{"endpoint", func(c *Config) { c.Upstream.Host = "" }},

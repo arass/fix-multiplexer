@@ -143,6 +143,13 @@ func TestActiveCleanupAndExpiry(t *testing.T) {
 	if m.Connected("a", true) == nil {
 		t.Fatal("retired reconnect")
 	}
+	if err = m.Connected("a", false); err != nil {
+		t.Fatal("retired session could not record disconnect", err)
+	}
+	state, _ := m.State("a")
+	if state.Active || !state.Retired {
+		t.Fatal("retired disconnect state lost")
+	}
 	if _, err = m.Prune("missing", time.Hour, false); err == nil {
 		t.Fatal("unknown cleanup")
 	}
@@ -163,6 +170,10 @@ func TestBudgetAndStoreFailures(t *testing.T) {
 			dir, err := m.Register("a", root)
 			if err != nil {
 				t.Fatal(err)
+			}
+			usage, e := m.Usage()
+			if e != nil || m.CachedUsage() != usage {
+				t.Fatal("store usage metric mismatch", e)
 			}
 			if _, err = m.Usage(); err != nil {
 				t.Fatal(err)

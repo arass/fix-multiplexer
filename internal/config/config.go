@@ -34,6 +34,7 @@ type Service struct {
 	UpstreamQueue   int           `yaml:"upstream_queue_messages"`
 	DownstreamQueue int           `yaml:"downstream_queue_messages_per_client"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
+	StartupTimeout  time.Duration `yaml:"startup_timeout"`
 }
 
 // Secret references contain no credential values in the configuration itself.
@@ -106,7 +107,7 @@ type Logging struct {
 
 func Defaults() Config {
 	var c Config
-	c.Service = Service{Name: "fix-multiplexer", Mode: "nonproduction", Bind: "127.0.0.1", HealthBind: "127.0.0.1:8081", MaxClients: 20, MaxMessageBytes: 1 << 20, UpstreamQueue: 1000, DownstreamQueue: 1000, ShutdownTimeout: 10 * time.Second}
+	c.Service = Service{Name: "fix-multiplexer", Mode: "nonproduction", Bind: "127.0.0.1", HealthBind: "127.0.0.1:8081", MaxClients: 20, MaxMessageBytes: 1 << 20, UpstreamQueue: 1000, DownstreamQueue: 1000, ShutdownTimeout: 10 * time.Second, StartupTimeout: 15 * time.Second}
 	c.Upstream.Version, c.Downstream.Version = "FIX.4.4", "FIX.4.4"
 	c.Upstream.AppTypes = []string{"D", "F", "G", "H", "V", "x"}
 	c.Downstream.DuplicatePolicy = "reject-new"
@@ -173,6 +174,9 @@ func (c Config) Validate() error {
 	}
 	if c.Service.ShutdownTimeout < time.Second || c.Service.ShutdownTimeout > time.Minute {
 		return invalid("service.shutdown_timeout must be between 1s and 1m")
+	}
+	if c.Service.StartupTimeout < time.Second || c.Service.StartupTimeout > time.Minute {
+		return invalid("service.startup_timeout must be between 1s and 1m")
 	}
 	if c.Upstream.Version != "FIX.4.4" || c.Downstream.Version != "FIX.4.4" {
 		return invalid("only FIX.4.4 end-to-end is supported")

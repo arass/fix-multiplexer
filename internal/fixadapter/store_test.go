@@ -3,13 +3,16 @@ package fixadapter
 import (
 	"crypto/tls"
 	"errors"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"fix-multiplexer/internal/config"
+	"fix-multiplexer/internal/maintenance"
 	"fix-multiplexer/internal/retention"
 	"github.com/quickfixgo/quickfix"
 )
@@ -117,6 +120,21 @@ type refreshFailure struct{ quickfix.MessageStore }
 
 func (refreshFailure) Refresh() error { return errors.New("synthetic refresh error") }
 
+type closeFailure struct{ quickfix.MessageStore }
+
+func (closeFailure) Close() error { return errors.New("synthetic close failure") }
+
+func TestDurableShutdownFailureIsVisibleAndIdempotent(t *testing.T) {
+	r, err := New(runtimeConfig(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.stores = append(r.stores, closeFailure{})
+	if r.Stop() == nil || r.Stop() == nil || r.Observer.EngineErrors.Load() == 0 {
+		t.Fatal("durable close failure hidden")
+	}
+}
+
 func TestGuardedStoreReadFailures(t *testing.T) {
 	s, _ := testStore(t, time.Hour)
 	s.MessageStore = refreshFailure{s.MessageStore}
@@ -146,15 +164,23 @@ func TestSettingsTLSAndDisabledClients(t *testing.T) {
 	c.Upstream.TLSEnabled = true
 	c.Upstream.TLS = config.TLS{CAFile: "synthetic-ca", CertFile: "synthetic-cert", KeyFile: "synthetic-key", ServerName: "synthetic-host"}
 	c.Downstream.Clients = append(c.Downstream.Clients, config.Client{Sender: "DISABLED", Disabled: true})
-	u, d, err := Settings(c)
+	_, d, err := Settings(c)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(d.SessionSettings()) != 1 {
 		t.Fatal("disabled session provisioned")
 	}
+	g := quickfix.NewSessionSettings()
+	setTLS(g, true, c.Upstream.TLS)
+	c.Upstream.TLS.RequireClientCert = true
+	setTLS(g, true, c.Upstream.TLS)
+	flag, err := g.Setting("SocketUseSSL")
+	if err != nil || flag != "N" {
+		t.Fatal("mTLS client identity not required")
+	}
 	for _, key := range []string{"SocketUseSSL", "SocketCAFile", "SocketCertificateFile", "SocketPrivateKeyFile", "SocketServerName"} {
-		if !u.GlobalSettings().HasSetting(key) {
+		if !g.HasSetting(key) {
 			t.Fatal(key)
 		}
 	}
@@ -182,6 +208,49 @@ func TestRuntimeReleasesUnstartedResources(t *testing.T) {
 	if _, err := New(c); err == nil {
 		t.Fatal("concurrent process store access accepted")
 	}
+}
+
+func TestEngineStoresAreActuallyIsolatedAndPruned(t *testing.T) {
+	c := runtimeConfig(t)
+	r, err := New(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, root := range []string{c.Upstream.StoreDir, c.Downstream.StoreDir} {
+		files, err := filepath.Glob(filepath.Join(root, "*", "*.body"))
+		if err != nil || len(files) != 1 {
+			t.Fatal("engine did not use isolated session directory", files, err)
+		}
+		direct, _ := filepath.Glob(filepath.Join(root, "*.body"))
+		if len(direct) != 0 {
+			t.Fatal("legacy root-level store bypassed retention")
+		}
+	}
+	r.Stop()
+	c.Retention.IdleTTL = time.Nanosecond
+	if err = maintenance.Run(c, "prune", "", false, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	files, _ := filepath.Glob(filepath.Join(c.Downstream.StoreDir, "*", "*.body"))
+	if len(files) != 0 {
+		t.Fatal("prune did not remove actual engine history")
+	}
+	up, _ := filepath.Glob(filepath.Join(c.Upstream.StoreDir, "*", "*.body"))
+	if len(up) != 1 {
+		t.Fatal("prune touched upstream")
+	}
+	if next, err := New(c); err == nil {
+		next.Stop()
+		t.Fatal("retired engine session resurrected")
+	}
+	if err = maintenance.Run(c, "reset", "CLIENT", false, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	r, err = New(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Stop()
 }
 
 func runtimeConfig(t *testing.T) config.Config {
@@ -244,6 +313,44 @@ func TestRuntimeStartupFailuresCleanUp(t *testing.T) {
 				t.Fatal("startup failed to release state", err)
 			}
 			r.Stop()
+		})
+	}
+}
+
+func TestUpstreamTLSPreparationAndSafeFailures(t *testing.T) {
+	cert, key := syntheticCertificate(t)
+	for _, kind := range []string{"valid", "missing-ca", "invalid-ca", "missing-key"} {
+		t.Run(kind, func(t *testing.T) {
+			c := runtimeConfig(t)
+			c.Upstream.TLSEnabled = true
+			c.Upstream.TLS = config.TLS{CAFile: cert, CertFile: cert, KeyFile: key}
+			switch kind {
+			case "missing-ca":
+				c.Upstream.TLS.CAFile = "synthetic-missing-ca"
+			case "invalid-ca":
+				path := filepath.Join(t.TempDir(), "ca")
+				if err := os.WriteFile(path, []byte("invalid synthetic PEM"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				c.Upstream.TLS.CAFile = path
+			case "missing-key":
+				c.Upstream.TLS.KeyFile = "synthetic-missing-key"
+			}
+			r, err := New(c)
+			if kind == "valid" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				r.Stop()
+			} else {
+				if err == nil {
+					r.Stop()
+					t.Fatal("invalid TLS accepted")
+				}
+				if strings.Contains(err.Error(), "synthetic-missing") {
+					t.Fatal("credential location leaked")
+				}
+			}
 		})
 	}
 }

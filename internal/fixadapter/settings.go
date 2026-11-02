@@ -10,6 +10,9 @@ import (
 
 // Settings builds typed engine settings, never interpolating credentials into INI.
 func Settings(c config.Config) (*quickfix.Settings, *quickfix.Settings, error) {
+	return settingsWithPaths(c, nil)
+}
+func settingsWithPaths(c config.Config, paths map[quickfix.SessionID]string) (*quickfix.Settings, *quickfix.Settings, error) {
 	u := baseSettings()
 	d := baseSettings()
 	u.GlobalSettings().Set("SocketConnectHost", c.Upstream.Host)
@@ -29,16 +32,25 @@ func Settings(c config.Config) (*quickfix.Settings, *quickfix.Settings, error) {
 		}
 		p.s.GlobalSettings().Set("DataDictionary", path)
 	}
-	setTLS(u.GlobalSettings(), c.Upstream.TLSEnabled, c.Upstream.TLS)
 	setTLS(d.GlobalSettings(), c.Downstream.TLSEnabled, c.Downstream.TLS)
-	if _, err := u.AddSession(sessionSettings(c.Upstream.Sender, c.Upstream.Target)); err != nil {
+	up := sessionSettings(c.Upstream.Sender, c.Upstream.Target)
+	upID := quickfix.SessionID{BeginString: "FIX.4.4", SenderCompID: c.Upstream.Sender, TargetCompID: c.Upstream.Target}
+	if path := paths[upID]; path != "" {
+		up.Set("FileStorePath", path)
+	}
+	if _, err := u.AddSession(up); err != nil {
 		return nil, nil, err
 	}
 	for _, cl := range c.Downstream.Clients {
 		if cl.Disabled {
 			continue
 		}
-		if _, err := d.AddSession(sessionSettings(c.Downstream.Target, cl.Sender)); err != nil {
+		down := sessionSettings(c.Downstream.Target, cl.Sender)
+		id := quickfix.SessionID{BeginString: "FIX.4.4", SenderCompID: c.Downstream.Target, TargetCompID: cl.Sender}
+		if path := paths[id]; path != "" {
+			down.Set("FileStorePath", path)
+		}
+		if _, err := d.AddSession(down); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -66,6 +78,9 @@ func setTLS(g *quickfix.SessionSettings, enabled bool, t config.TLS) {
 		return
 	}
 	g.Set("SocketUseSSL", "Y")
+	if t.RequireClientCert {
+		g.Set("SocketUseSSL", "N")
+	}
 	g.Set("SocketInsecureSkipVerify", "N")
 	for k, v := range map[string]string{"SocketCAFile": t.CAFile, "SocketCertificateFile": t.CertFile, "SocketPrivateKeyFile": t.KeyFile, "SocketServerName": t.ServerName} {
 		if v != "" {

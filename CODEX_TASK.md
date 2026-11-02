@@ -110,6 +110,8 @@ Progress: initial implementation covers durable restart, downstream stored repla
 
 **Phase 4: safety and maintainability.** Bounded resources and retention, client deprovisioning, credentials/TLS, metrics, health checks, graceful shutdown, container build, documentation and contribution guide. Add race, fuzz/property and soak tests.
 
+Progress: implemented metadata-only logs, health/metrics, TLS/mTLS, bounded transports, engine queue credit, startup/shutdown deadlines, root-level legacy-state rejection, safer cleanup, coverage gate, network-isolated Compose demo and core soak. TLS, resource, restart and race regressions pass. Extended socket stress and remaining acceptance variants are tracked in docs/TEST_STATUS.md for final auditing. Licensing explicitly remains undecided; do not add LICENSE or tag a release without new owner direction.
+
 **Phase 5: interoperability and release.** Test against a *different* FIX implementation (e.g. QuickFIX/J) in CI or reproducibly locally; verify README demo and deployment from a clean checkout; check software bill of materials/licenses; tag only after acceptance criteria pass.
 
 ## Acceptance criteria

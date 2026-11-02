@@ -91,16 +91,17 @@ func allowed(typ string, allow, deny []string) bool {
 
 // Submit serializes upstream sends. A nil result is local engine acceptance only.
 func (g *Router) Submit(source string, m Message) error {
+	fail := func(err error) error { g.Counters.Failed.Add(1); return err }
 	s, ok := g.registry.Get(source)
 	if !ok || !s.Enabled || !s.LoggedOn {
-		return sessions.ErrUnavailable
+		return fail(sessions.ErrUnavailable)
 	}
 	if !allowed(m.Type(), g.options.UpstreamTypes, g.options.DenyTypes) {
-		return ErrPolicy
+		return fail(ErrPolicy)
 	}
 	u, ok := g.registry.Get(g.options.Upstream)
 	if !ok || !u.Enabled || !u.LoggedOn {
-		return ErrUnavailable
+		return fail(ErrUnavailable)
 	}
 	j := job{source: source, target: u.ID, generation: u.Generation, msg: m, reply: make(chan error, 1)}
 	if err := g.enqueue(g.upstream, j); err != nil {
@@ -207,6 +208,13 @@ func (g *Router) Ready() bool {
 	return !g.stopped && ok && u.Enabled && u.LoggedOn
 }
 func (g *Router) QueueBytes() int64 { return g.used.Load() }
+func (g *Router) QueueDepth() int64 {
+	n := len(g.upstream)
+	for _, q := range g.clients {
+		n += len(q)
+	}
+	return int64(n)
+}
 func (g *Router) Close() {
 	g.mu.Lock()
 	if !g.stopped {

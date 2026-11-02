@@ -20,7 +20,7 @@ Each FIX session owns its sequences and outbound history. Valid inbound PossDup 
 
 `retention.upstream_replay_window` defaults to 0s (no age cutoff), independently of downstream policy. Both sides remain subject to disk limits. This does not recover upstream traffic the venue never supplied.
 
-Age limits govern replay eligibility, not rolling deletion from active stores. Engine files can retain older bytes until offline cleanup, while `session_limit_bytes` and aggregate `disk_limit_bytes` bound growth. Store writes include an overhead reservation. A durability/budget failure is latched and stops further application forwarding until the issue is resolved and the daemon restarted. No required history is silently erased. Slow disk writes may still delay shutdown; full bounded transport and shutdown hardening remains a Phase 4 task.
+Age limits govern replay eligibility, not rolling deletion from active stores. Engine files can retain older bytes until offline cleanup, while `session_limit_bytes` and aggregate `disk_limit_bytes` bound growth. Store writes include an overhead reservation. A durability/budget failure is latched and stops further application forwarding until the issue is resolved and the daemon restarted. No required history is silently erased. The CLI enforces overall startup/shutdown deadlines. If filesystem I/O prevents graceful shutdown, it exits with an explicit operational error and leaves leases for operator recovery.
 
 ## Offline client maintenance
 
@@ -39,6 +39,8 @@ Prune eligibility requires an inactive client whose last disconnect is at least 
 
 Store directories are hash-named beneath the configured roots. Metadata contains connection/retirement state, not FIX payloads. File-store bodies contain business messages for FIX resend and should be protected as sensitive test data. Root ownership is restricted when creating new directories; do not reuse an insecure shared directory.
 
+Checkpoints before the Phase 4 store-path regression fix could create engine files directly in a root. Such legacy files now block startup explicitly. Do not reset or delete them to get past the check: preserve their sequence state and migrate them offline into the correct session hash directory, or deliberately coordinate fresh session provisioning. There is no automatic legacy migration. Configuration-relative paths are resolved from the process working directory; run documented commands from the repository root.
+
 ## Hard crash recovery
 
 A crash leaves `.gateway-lock` in each configured store root. This intentionally blocks accidental concurrent ownership. Verify the previous process has terminated, then remove only those two empty lock directories before restart. Do not remove message or sequence files. A hard-kill integration test executes this operator recovery step and verifies increasing persisted sequences after restart.
@@ -49,4 +51,16 @@ The lock is conservative: there is no automatic PID-based stale-lock deletion. I
 
 FIX 4.4 only; identical XML dictionaries on both boundaries. Standard and customized dictionary-defined groups are rebuilt through engine APIs. Scalar extension tags survive. Body-level ordering follows the engine; custom ordering requirements need explicit compatibility tests. Original header/trailer fields other than MsgType are discarded, including routing delegation and replay indicators. Embedded SOH in EncodedText is unsupported by engine v0.9.12 and tested as a reconstruction error. No custom parser or engine fork is used.
 
-Health/metrics, TLS failure-injection, pre-parser transport resource bounds, full shutdown bounds, soak and independent-engine interoperability are still being implemented. See IMPLEMENTATION_STATUS.md for the current checkpoint rather than treating this document as a release guarantee.
+## Health, transport bounds and logging
+
+`/live` checks process serving; `/ready` requires the upstream logged on, routing active and required store health. Disconnected downstream clients do not make the entire service unready. `/metrics` reports routing outcomes, queue bytes/depth, engine queue credit, cached store usage, disk warning threshold, replay observations and hashed per-session labels. Disable HTTP with `service.health_bind: ""`. The CLI `-probe` flag performs a bounded local HTTP check.
+
+Both network boundaries cap unread bytes before engine parsing. That cap also bounds read-ahead bursts; excessive bursts may cause disconnect even when individual messages are smaller than the limit. Downstream pending connections are capped at twice max_clients, with a five-second initial read deadline. Established read inactivity has a 65-second bound and writes a five-second deadline, alongside FIX heartbeat handling.
+
+The upstream engine connects through a private loopback transport bridge because its API has no custom dial/read hook. The bridge performs certificate-verified TLS against the configured venue and copies opaque bytes for that same FIX session. It does not interpret FIX, tunnel admin messages between independent sessions, or replace the engine. Independent logon/admin/sequence behavior remains at the two FIX boundaries.
+
+Application sends admitted to the engine's internal queues are capped at 2MiB per session and 64MiB globally, in addition to routing queues and the routing 64MiB budget. Queue credit releases when the engine hands bytes to its writer, not when a peer accepts an order. Resends use the engine's synchronous writer path and are not refused for queue credit (that would risk gap-filling away business history). After a failed/disconnected send, conservative outstanding credit can remain until emission or daemon restart. Treat a full queue as a visible forwarding error, never as acceptance.
+
+Default logs emit JSON timestamps, hashed session identity, direction, MsgType, sequence and outcome. They omit all body values, credential/custom sensitive tags, raw frames and untrusted engine error interpolation. Store payloads remain sensitive even though logs are metadata only. The built-in lint gate is go vet with the pinned CI Go version, plus gofmt; no external linter is claimed.
+
+See TEST_STATUS.md and IMPLEMENTATION_STATUS.md for current acceptance gaps rather than treating these operations as a production or release guarantee.

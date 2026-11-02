@@ -9,8 +9,10 @@ import (
 
 	"fix-multiplexer/internal/config"
 	"fix-multiplexer/internal/gateway"
+	"fix-multiplexer/internal/observability"
 	"fix-multiplexer/internal/retention"
 	"fix-multiplexer/internal/sessions"
+	"fix-multiplexer/internal/transport"
 	"github.com/quickfixgo/quickfix"
 	"github.com/quickfixgo/quickfix/datadictionary"
 )
@@ -25,21 +27,32 @@ type Application struct {
 	ClientPasswords                          map[string]string
 	created                                  []quickfix.SessionID
 	Stores                                   *retention.Manager
+	Observer                                 *observability.Recorder
+	Pending                                  *transport.Pending
 }
 
 func (a *Application) OnCreate(id quickfix.SessionID) { a.created = append(a.created, id) }
 func (a *Application) OnLogon(id quickfix.SessionID) {
-	if a.Stores != nil && a.Stores.Connected(id.String(), true) != nil {
+	if a.Stores != nil && (!a.Stores.Healthy() || a.Stores.Connected(id.String(), true) != nil) {
 		_ = a.Registry.Disable(id.String())
+		if a.Observer != nil {
+			a.Observer.EngineError(id.String())
+		}
 		return
 	}
 	_ = a.Registry.SetLoggedOn(id.String(), true)
+	if a.Observer != nil {
+		a.Observer.Session(id.String(), true)
+	}
 }
 func (a *Application) OnLogout(id quickfix.SessionID) {
 	if a.Stores != nil {
 		_ = a.Stores.Connected(id.String(), false)
 	}
 	_ = a.Registry.SetLoggedOn(id.String(), false)
+	if a.Observer != nil {
+		a.Observer.Session(id.String(), false)
+	}
 }
 func (a *Application) ToAdmin(m *quickfix.Message, id quickfix.SessionID) {
 	if id == a.Upstream && m.IsMsgTypeOf("A") {
@@ -53,7 +66,21 @@ func (a *Application) ToAdmin(m *quickfix.Message, id quickfix.SessionID) {
 }
 
 // ToApp is invoked for outbound replay too. It never routes any message.
-func (a *Application) ToApp(*quickfix.Message, quickfix.SessionID) error { return nil }
+func (a *Application) ToApp(m *quickfix.Message, id quickfix.SessionID) error {
+	dup, _ := m.Header.GetBool(43)
+	if a.Observer != nil {
+		if dup {
+			a.Observer.Replay.Add(1)
+		}
+		a.record(m, id, "outbound", "prepared")
+	}
+	// Engine resends synchronously wait for the writer; never reject them for
+	// queue credit (the engine would gap-fill a rejected replay).
+	if !dup && a.Pending != nil {
+		return a.Pending.Reserve(id.String(), m.Bytes())
+	}
+	return nil
+}
 func (a *Application) FromAdmin(m *quickfix.Message, id quickfix.SessionID) quickfix.MessageRejectError {
 	if len(m.Bytes()) > a.MaxMessageBytes {
 		return quickfix.NewMessageRejectError("gateway: message exceeds limit", 5, nil)
@@ -98,17 +125,33 @@ func (a *Application) FromApp(m *quickfix.Message, id quickfix.SessionID) quickf
 		return reject(m, "gateway: unsupported application message", 3)
 	}
 	if id == a.Upstream {
-		_ = a.Router.Broadcast(msg)
+		err := a.Router.Broadcast(msg)
+		outcome := "fanout_enqueued"
+		if err != nil {
+			outcome = "policy_drop"
+		}
+		a.record(m, id, "upstream", outcome)
 		return nil
 	}
 	if err = a.Router.Submit(id.String(), msg); err != nil {
+		a.record(m, id, "downstream", "forward_failed")
 		reason := 4
 		if errors.Is(err, gateway.ErrPolicy) {
 			reason = 3
 		}
 		return reject(m, err.Error(), reason)
 	}
+	a.record(m, id, "downstream", "queued_upstream")
 	return nil
+}
+
+func (a *Application) record(m *quickfix.Message, id quickfix.SessionID, direction, outcome string) {
+	if a.Observer == nil {
+		return
+	}
+	typ, _ := m.MsgType()
+	seq, _ := m.Header.GetInt(34)
+	a.Observer.Application(direction, id.String(), typ, seq, outcome)
 }
 func reject(m *quickfix.Message, text string, reason int) quickfix.MessageRejectError {
 	ref, _ := m.Body.GetString(11)

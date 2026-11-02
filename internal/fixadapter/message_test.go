@@ -156,6 +156,49 @@ func TestGroupedReportWireRoundTrip(t *testing.T) {
 	parse(out)
 }
 
+func TestDictionaryExtensionGroupOrderAndDuplicateValues(t *testing.T) {
+	d := dictionary(t)
+	count := datadictionary.NewFieldType("SyntheticCount", 6000, "NUMINGROUP")
+	first := datadictionary.NewFieldDef(datadictionary.NewFieldType("SyntheticDelimiter", 6002, "STRING"), true)
+	second := datadictionary.NewFieldDef(datadictionary.NewFieldType("SyntheticValue", 6001, "STRING"), false)
+	group := datadictionary.NewGroupFieldDef(count, false, []datadictionary.MessagePart{first, second})
+	d.Messages["U1"] = datadictionary.NewMessageDef("Synthetic", "U1", []datadictionary.MessagePart{group})
+	m := framed("U1")
+	tmpl := quickfix.GroupTemplate{quickfix.GroupElement(6002), quickfix.GroupElement(6001)}
+	g := quickfix.NewRepeatingGroup(6000, tmpl)
+	for i := 0; i < 2; i++ {
+		row := g.Add()
+		row.SetString(6002, "same-delimiter-value")
+		row.SetString(6001, "same-value")
+	}
+	m.Body.SetGroup(g)
+	m.Body.SetString(9000, "outside-custom-group")
+	s, err := Snapshot(m, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	copy, err := s.Clone()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := copy.(*Message).out
+	for tag, value := range map[quickfix.Tag]string{8: "FIX.4.4", 49: "NEW", 56: "PEER", 34: "1", 52: "20260101-12:00:00.000"} {
+		out.Header.SetString(tag, value)
+	}
+	parsed := quickfix.NewMessage()
+	if err = quickfix.ParseMessageWithDataDictionary(parsed, bytes.NewBuffer(out.Bytes()), d, d); err != nil {
+		t.Fatal(err)
+	}
+	actual := quickfix.NewRepeatingGroup(6000, tmpl)
+	if err = parsed.Body.GetGroup(actual); err != nil || actual.Len() != 2 {
+		t.Fatal("extension ordering/duplicate values lost", err)
+	}
+	v, _ := parsed.Body.GetString(9000)
+	if v != "outside-custom-group" {
+		t.Fatal("extension scalar lost")
+	}
+}
+
 func TestEncodedAndErrors(t *testing.T) {
 	d := dictionary(t)
 	m := framed("8")

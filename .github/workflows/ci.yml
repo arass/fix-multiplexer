@@ -13,6 +13,7 @@ jobs:
       - run: test -z "$(gofmt -l cmd internal)"
       - run: go vet ./...
       - run: go test -short -coverprofile=coverage.out ./...
+      - run: go run ./scripts/check-coverage.go coverage.out
       - run: go test -race ./...
   integration:
     runs-on: ubuntu-latest
@@ -29,3 +30,12 @@ jobs:
       - run: docker build -t fix-multiplexer .
       - run: docker run --rm fix-multiplexer -check-config
       - run: docker run --rm fix-multiplexer -demo
+      - run: docker compose -f examples/docker-compose.yml up --build --abort-on-container-exit --exit-code-from smoke
+  soak:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - run: go test -race -tags=soak ./internal/gateway -run TestRoutingSoak -timeout=60s

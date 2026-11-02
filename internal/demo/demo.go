@@ -75,7 +75,8 @@ func Run(ctx context.Context, out io.Writer) error {
 	}
 	var peers []*testfix.Peer
 	var ids []quickfix.SessionID
-	var initiators []*quickfix.Initiator
+	var initiators []*testfix.Initiator
+	var clientSettings []*quickfix.Settings
 	defer func() {
 		for _, i := range initiators {
 			i.Stop()
@@ -96,7 +97,8 @@ func Run(ctx context.Context, out io.Writer) error {
 		if e != nil {
 			return e
 		}
-		i, e := testfix.Connect(p, s)
+		s.GlobalSettings().Set("FileStorePath", filepath.Join(state, "client_"+cl.Sender))
+		i, e := testfix.ConnectDurable(p, s)
 		if e != nil {
 			return e
 		}
@@ -106,6 +108,7 @@ func Run(ctx context.Context, out io.Writer) error {
 		}
 		peers = append(peers, p)
 		ids = append(ids, id)
+		clientSettings = append(clientSettings, s)
 	}
 	if err = Wait(ctx, mux.Registry, func(states []sessions.State) bool {
 		count := 0
@@ -209,6 +212,42 @@ func Run(ctx context.Context, out io.Writer) error {
 		id, _ := m.Body.GetString(11)
 		if id != "while-a-offline" {
 			return errors.New("live-only fanout failed")
+		}
+	}
+	// Reconnect with durable client state. A subsequent report is the first
+	// business event seen, proving the offline-period event was never queued.
+	returning := testfix.NewPeer()
+	reconnected, e := testfix.ConnectDurable(returning, clientSettings[0])
+	if e != nil {
+		return e
+	}
+	initiators = append(initiators, reconnected)
+	peers[0] = returning
+	if _, e = testfix.Receive(ctx, returning.Logons); e != nil {
+		return e
+	}
+	if err = Wait(ctx, mux.Registry, func(states []sessions.State) bool {
+		n := 0
+		for _, s := range states {
+			if s.LoggedOn {
+				n++
+			}
+		}
+		return n == 4
+	}); err != nil {
+		return err
+	}
+	if err = quickfix.SendToTarget(testfix.Report("after-a-returned"), venueID); err != nil {
+		return err
+	}
+	for _, p := range peers {
+		m, e := testfix.Receive(ctx, p.Messages)
+		if e != nil {
+			return e
+		}
+		id, _ := m.Body.GetString(11)
+		if id != "after-a-returned" {
+			return errors.New("offline period report was queued for reconnect")
 		}
 	}
 	// Standard gateway error on outage, without a fabricated execution report.
