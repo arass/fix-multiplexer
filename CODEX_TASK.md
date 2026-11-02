@@ -118,6 +118,8 @@ Progress: independent QuickFIX/J 2.3.2 peers passed groups/custom fields, admin 
 
 ## Acceptance criteria
 
+Security review is in progress after the owner-requested local tag `security-review-baseline` at 67f1284. See docs/SECURITY_REVIEW.md for the open upstream bridge local-process trust issue, vulnerability scan results and remaining review work. Do not treat the implementation milestone as security approval.
+
 1. Local automated end-to-end test: 3 distinct downstream FIX initiators successfully log on and send orders through **one** upstream FIX initiator. Mock upstream sees correct business tags and one session.
 2. One mock upstream execution report is delivered to all 3 active downstream clients, with correct **independent** target session headers and sequence numbers, unchanged business IDs.
 3. Disconnect one downstream client; other clients continue; disconnected client does not accumulate messages generated while offline. Upon reconnect it can resend previously assigned but missing messages as FIX allows.
