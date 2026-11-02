@@ -2,7 +2,7 @@
 
 ## Current state
 
-Phase 1 and initial Phase 2 forwarding implemented. Runnable gateway and synthetic local three-client demo exist, including on-wire groups and PossDup submissions. Retention enforcement, operational hardening and independent-engine interoperability are pending. User decisions in CODEX_TASK.md take precedence over earlier suggestions.
+Phases 1/2 and initial Phase 3 recovery implemented. Runnable gateway and local three-client demo include grouped reports and PossDup submissions. Durable restart/resend, configured replay windows, disk budgets and offline retirement/reset exist. Operational hardening and independent-engine interoperability remain pending. User decisions in CODEX_TASK.md take precedence over earlier suggestions.
 
 ## Completed
 
@@ -24,7 +24,7 @@ Phase 1 and initial Phase 2 forwarding implemented. Runnable gateway and synthet
 
 ## Next action
 
-Begin Phase 3 retention and restart/replay; complete outstanding matrix scenarios alongside subsequent phases. Implemented injected engine-independent router and session registry, independent client workers, bounded message queues plus shared 64MiB byte budget, session-generation checks, per-target reconstruction, standard gateway BusinessMessageReject and valid inbound PossDup forwarding. Engine source review and initial license notices recorded in docs/PRIOR_ART.md. No engine modifications.
+Begin Phase 4 observability, transport/resource and shutdown hardening; continue remaining matrix scenarios. Phase 3 added engine-delegated durable stores with budget guards, downstream 8h/upstream independent replay eligibility, persistent retirement markers, exclusive root leases, and offline list/prune/reset CLI operations. Existing state layout changed to per-session hash directories; the preimplementation layout has no compatibility promise. No engine modifications.
 
 Milestone 1a checks: native go fmt, go vet ./..., go test ./..., coverage and CLI sample validation passed. Config statement coverage: 99.1%. Linux go test -race ./... passed. Actual Dockerfile built and application container -check-config passed. CLI coverage is not included in the core target. Added CI and Docker packaging. Socket integration coverage remains pending.
 
@@ -41,6 +41,8 @@ Milestone 1b: native unit tests, vet and real-socket integration passed. Linux r
 For every completed implementation step: update this file and affected task documents, run applicable checks, record outcomes, then commit locally. Do not claim checks passed without execution. Do not include unrelated IDE files in commits.
 
 Milestone 2: extended real-socket demo to inbound PossDup orders and repeating groups in reports, preserved on every target. Found and fixed parsed-group tail-slice serialization in our adapter; added a full wire parse/validate round-trip reproducer. Config loading now rejects inputs exceeding 1MiB instead of accepting a truncated document. Fast core coverage remains config 99.1%, routing/sessions 100%. Native vet/unit tests and a three-second message-copy fuzz run passed (110,137 executions on final run). Rebuilt container; Linux race/integration and actual container smoke passed. Full TEST_PLAN matrix is not complete: recovery/restart, retention, management, resource boundaries and independent parser are pending.
+
+Milestone 3: native format/vet/unit/coverage and local restart/resend tests pass. Core fast-test coverage: config 99.1%, adapter 90.6%, routing/sessions 100%, retention 90.0%; maintenance CLI orchestration 85.3% is reported separately. Real FIX tests exercise downstream stored resend with replay flags, genuine upstream gap recovery, restart with sequences preserved and hard-kill recovery after explicit stale-lease removal. Race testing initially caught unsynchronized mock fault injection; the test peers now synchronize store access and wait for sequence-advance events. No sleeps added as test synchronization. Read-only maintenance works even over budget; retirement-marker failure cannot delete history. Active stores are never pruned. Final Linux race/integration checks and actual container build/demo passed.
 
 ## Resume
 

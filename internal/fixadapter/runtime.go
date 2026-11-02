@@ -7,6 +7,7 @@ import (
 
 	"fix-multiplexer/internal/config"
 	"fix-multiplexer/internal/gateway"
+	"fix-multiplexer/internal/retention"
 	"fix-multiplexer/internal/sessions"
 	"github.com/quickfixgo/quickfix"
 	"github.com/quickfixgo/quickfix/datadictionary"
@@ -22,6 +23,7 @@ type Runtime struct {
 	mu               sync.Mutex
 	started, stopped bool
 	stores           []quickfix.MessageStore
+	Stores           *retention.Manager
 }
 
 func New(c config.Config) (*Runtime, error) {
@@ -85,6 +87,26 @@ func New(c config.Config) (*Runtime, error) {
 		clients = append(clients, id.String())
 	}
 	r := &Runtime{}
+	r.Stores, err = retention.Open([]string{c.Upstream.StoreDir, c.Downstream.StoreDir}, c.Retention.DiskLimitBytes, c.Retention.SessionLimitBytes, time.Now)
+	if err != nil {
+		return nil, err
+	}
+	for id := range ids {
+		sid := ids[id]
+		root := c.Downstream.StoreDir
+		settings := d.SessionSettings()
+		if sid == a.Upstream {
+			root = c.Upstream.StoreDir
+			settings = u.SessionSettings()
+		}
+		path, e := r.Stores.Register(id, root)
+		if e != nil {
+			r.Stores.Close()
+			return nil, e
+		}
+		settings[sid].Set("FileStorePath", path)
+	}
+	a.Stores = r.Stores
 	r.Registry = sessions.New(enabled, time.Now)
 	a.Registry = r.Registry
 	r.Router = gateway.New(gateway.Options{Upstream: a.Upstream.String(), Clients: clients, UpstreamTypes: c.Upstream.AppTypes, DownstreamTypes: c.Fanout.AppTypes, DenyTypes: c.Fanout.DenyTypes, UpstreamQueue: c.Service.UpstreamQueue, DownstreamQueue: c.Service.DownstreamQueue, ByteBudget: 64 << 20}, r.Registry, EngineSender{IDs: ids})
@@ -98,11 +120,11 @@ func New(c config.Config) (*Runtime, error) {
 			r.cleanup(false)
 		}
 	}()
-	r.acceptor, err = quickfix.NewAcceptor(a, trackingFactory{file.NewStoreFactory(d), &r.stores}, d, quickfix.NewNullLogFactory())
+	r.acceptor, err = quickfix.NewAcceptor(a, trackingFactory{base: file.NewStoreFactory(d), stores: &r.stores, manager: r.Stores, window: c.Retention.DownstreamWindow}, d, quickfix.NewNullLogFactory())
 	if err != nil {
 		return nil, errors.New("cannot initialize downstream FIX sessions")
 	}
-	r.initiator, err = quickfix.NewInitiator(a, trackingFactory{file.NewStoreFactory(u), &r.stores}, u, quickfix.NewNullLogFactory())
+	r.initiator, err = quickfix.NewInitiator(a, trackingFactory{base: file.NewStoreFactory(u), stores: &r.stores, manager: r.Stores, window: c.Retention.UpstreamWindow}, u, quickfix.NewNullLogFactory())
 	if err != nil {
 		return nil, errors.New("cannot initialize upstream FIX session")
 	}
@@ -156,16 +178,20 @@ func (r *Runtime) cleanup(started bool) {
 	for _, s := range r.stores {
 		_ = s.Close()
 	}
+	_ = r.Stores.Close()
 }
 
 type trackingFactory struct {
-	base   quickfix.MessageStoreFactory
-	stores *[]quickfix.MessageStore
+	base    quickfix.MessageStoreFactory
+	stores  *[]quickfix.MessageStore
+	manager *retention.Manager
+	window  time.Duration
 }
 
 func (f trackingFactory) Create(id quickfix.SessionID) (quickfix.MessageStore, error) {
 	s, err := f.base.Create(id)
 	if err == nil {
+		s = &guardedStore{MessageStore: s, manager: f.manager, id: id.String(), window: f.window, now: time.Now}
 		*f.stores = append(*f.stores, s)
 	}
 	return s, err

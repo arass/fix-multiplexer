@@ -9,6 +9,7 @@ import (
 
 	"fix-multiplexer/internal/config"
 	"fix-multiplexer/internal/gateway"
+	"fix-multiplexer/internal/retention"
 	"fix-multiplexer/internal/sessions"
 	"github.com/quickfixgo/quickfix"
 	"github.com/quickfixgo/quickfix/datadictionary"
@@ -23,11 +24,23 @@ type Application struct {
 	Username, Password                       string
 	ClientPasswords                          map[string]string
 	created                                  []quickfix.SessionID
+	Stores                                   *retention.Manager
 }
 
 func (a *Application) OnCreate(id quickfix.SessionID) { a.created = append(a.created, id) }
-func (a *Application) OnLogon(id quickfix.SessionID)  { _ = a.Registry.SetLoggedOn(id.String(), true) }
-func (a *Application) OnLogout(id quickfix.SessionID) { _ = a.Registry.SetLoggedOn(id.String(), false) }
+func (a *Application) OnLogon(id quickfix.SessionID) {
+	if a.Stores != nil && a.Stores.Connected(id.String(), true) != nil {
+		_ = a.Registry.Disable(id.String())
+		return
+	}
+	_ = a.Registry.SetLoggedOn(id.String(), true)
+}
+func (a *Application) OnLogout(id quickfix.SessionID) {
+	if a.Stores != nil {
+		_ = a.Stores.Connected(id.String(), false)
+	}
+	_ = a.Registry.SetLoggedOn(id.String(), false)
+}
 func (a *Application) ToAdmin(m *quickfix.Message, id quickfix.SessionID) {
 	if id == a.Upstream && m.IsMsgTypeOf("A") {
 		if a.Username != "" {
@@ -44,6 +57,9 @@ func (a *Application) ToApp(*quickfix.Message, quickfix.SessionID) error { retur
 func (a *Application) FromAdmin(m *quickfix.Message, id quickfix.SessionID) quickfix.MessageRejectError {
 	if len(m.Bytes()) > a.MaxMessageBytes {
 		return quickfix.NewMessageRejectError("gateway: message exceeds limit", 5, nil)
+	}
+	if m.IsMsgTypeOf("A") && a.Stores != nil && !a.Stores.CanUse(id.String()) {
+		return quickfix.RejectLogon{Text: "gateway: store unavailable or session retired"}
 	}
 	if id == a.Upstream || !m.IsMsgTypeOf("A") {
 		return nil
@@ -67,6 +83,9 @@ func (a *Application) FromAdmin(m *quickfix.Message, id quickfix.SessionID) quic
 	return nil
 }
 func (a *Application) FromApp(m *quickfix.Message, id quickfix.SessionID) quickfix.MessageRejectError {
+	if a.Stores != nil && !a.Stores.Healthy() {
+		return reject(m, "gateway: durable store unhealthy", 4)
+	}
 	if len(m.Bytes()) > a.MaxMessageBytes {
 		return reject(m, "gateway: message exceeds limit", 5)
 	}

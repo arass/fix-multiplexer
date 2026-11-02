@@ -35,6 +35,9 @@ func Settings(c config.Config) (*quickfix.Settings, *quickfix.Settings, error) {
 		return nil, nil, err
 	}
 	for _, cl := range c.Downstream.Clients {
+		if cl.Disabled {
+			continue
+		}
 		if _, err := d.AddSession(sessionSettings(c.Downstream.Target, cl.Sender)); err != nil {
 			return nil, nil, err
 		}

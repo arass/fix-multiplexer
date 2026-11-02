@@ -4,7 +4,7 @@
 
 FIX Multiplexer is a standalone **FIX-to-FIX session multiplexer** for trading-system development, QA, certification rehearsals, and shared UAT environments. It lets multiple independent FIX clients connect to a single FIX counterparty session without changing those clients to use REST, WebSockets, or a proprietary SDK.
 
-> **Project status:** Phase 1 implemented; forwarding tests are in progress. The CLI, local three-client demo and FIX 4.4 runtime work. Retention enforcement, full operational hardening and independent-engine interoperability are pending; do not deploy this checkpoint beyond local development. See [implementation checkpoint](docs/IMPLEMENTATION_STATUS.md).
+> **Project status:** Phases 1–3 have working implementations and local regression tests. The CLI, three-client demo, forwarding, durable recovery and offline retention operations work. Full operational hardening and independent-engine interoperability are pending; use this checkpoint only for local development. See [implementation checkpoint](docs/IMPLEMENTATION_STATUS.md).
 
 ```text
 Dev A ── FIX ──┐
@@ -88,14 +88,14 @@ go test -tags=integration ./...
 
 On this Windows workspace, the verified local toolchain is `.tools/go/bin/go.exe`; it is not added to PATH. Linux race checks can run in the official Go container. Configuration currently requires loopback listeners; unknown fields and unsupported FIX versions fail startup. Credential values belong in environment/file references. Defaults and the sample are validated by tests.
 
-The `-demo` command starts a local mock venue, the gateway and three clients, verifies orders, fanout, live-only disconnection behavior and a standard gateway error on upstream outage, then exits. It uses temporary session stores and synthetic data. No venue credentials are required. A Docker Compose deployment is still pending:
+The `-demo` command starts a local mock venue, the gateway and three clients, verifies orders (including inbound PossDup), grouped fanout, live-only disconnection behavior and a standard gateway error on upstream outage, then exits. It uses temporary session stores and synthetic data. No venue credentials are required. A Docker Compose deployment is still pending:
 
 1. A mock FIX acceptor acting as the upstream counterparty.
 2. The FIX multiplexer with one upstream initiator and multiple downstream acceptor sessions.
 3. Three independent FIX test clients.
 4. Automated smoke tests proving that orders reach the upstream counterparty and application-level reports reach connected clients.
 
-To run the current gateway against separately started local peers, use `go run ./cmd/fix-multiplexer -config config/example.yaml`. Its file stores persist independently. Current limitations: no retention enforcement yet, message-size checking occurs after engine parsing, and complete management/TLS/resource-failure testing is pending. Startup and forwarding checks do not guarantee production suitability.
+To run the current gateway against separately started local peers, use `go run ./cmd/fix-multiplexer -config config/example.yaml`. Its file stores persist independently. Eight-hour downstream replay eligibility, disk budgets and explicit offline retirement/reset are enforced. See [operations and crash recovery](docs/OPERATIONS.md) before using persistent stores. Current limitations: message-size checking occurs after engine parsing, and complete management/TLS/resource-failure testing is pending. Startup and forwarding checks do not guarantee production suitability.
 
 The adapter reconstructs business fields and dictionary-defined nested groups. All original header/trailer fields are discarded except MsgType, including OnBehalfOf/DeliverTo and PossDup/OrigSendingTime; inbound PossDup application messages are routed as fresh messages on the other session. Unknown scalar body tags survive; custom groups require the same customized XML dictionary on both sides. Top-level body fields follow engine ordering. Embedded SOH in EncodedText is currently unsupported by the engine; no custom parser is added. See docs/PRIOR_ART.md.
 

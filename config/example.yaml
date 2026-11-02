@@ -31,10 +31,13 @@ fanout:
   mode: live-only
   app_message_types: ["8", "9", "j"] # illustrative only; Codex must define exact documented policy
 retention:
-  downstream_replay_window: 8h # proposed schema; expiry requires explicit reset policy
+  downstream_replay_window: 8h # older application replay requests retire the session
+  upstream_replay_window: 0s # independent: no age cutoff, still subject to disk budgets
   inactive_client_ttl: 168h
   prune_active_sessions: false
   disk_warn_bytes: 1073741824
+  disk_limit_bytes: 2147483648
+  session_limit_bytes: 67108864
 logging:
   mode: metadata
   redact_tags: ["89", "91", "96", "553", "554", "925", "1402", "1404"]

@@ -106,6 +106,8 @@ Progress: initial implementation and regressions pass for scalar/custom fields, 
 
 **Phase 3: reconnect/recovery.** Durable session stores; resend behavior; logon/logoff and reconnect; upstream outage; no offline application queue; restarts; duplicate avoidance; configurable session reset strategy. Add recovery integration tests and failure-injection tests.
 
+Progress: initial implementation covers durable restart, downstream stored replay, genuine upstream gap replay, hard-kill recovery, configurable 8h downstream history, independent upstream policy, fail-closed disk budgets and explicit offline prune/reset with persistent retirement. Fault injection uses synchronized mock stores; no blanket PossDup filtering. Operational metrics and additional failure/interop/soak coverage remain for Phases 4/5.
+
 **Phase 4: safety and maintainability.** Bounded resources and retention, client deprovisioning, credentials/TLS, metrics, health checks, graceful shutdown, container build, documentation and contribution guide. Add race, fuzz/property and soak tests.
 
 **Phase 5: interoperability and release.** Test against a *different* FIX implementation (e.g. QuickFIX/J) in CI or reproducibly locally; verify README demo and deployment from a clean checkout; check software bill of materials/licenses; tag only after acceptance criteria pass.

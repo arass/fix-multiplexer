@@ -91,6 +91,7 @@ type Fanout struct {
 
 type Retention struct {
 	DownstreamWindow  time.Duration `yaml:"downstream_replay_window"`
+	UpstreamWindow    time.Duration `yaml:"upstream_replay_window"`
 	IdleTTL           time.Duration `yaml:"inactive_client_ttl"`
 	PruneActive       bool          `yaml:"prune_active_sessions"`
 	DiskWarnBytes     int64         `yaml:"disk_warn_bytes"`
@@ -228,7 +229,7 @@ func (c Config) Validate() error {
 	if len(c.Upstream.AppTypes) == 0 || len(c.Fanout.AppTypes) == 0 {
 		return invalid("application allowlists must be nonempty")
 	}
-	if c.Retention.DownstreamWindow <= 0 || c.Retention.IdleTTL <= 0 || c.Retention.PruneActive {
+	if c.Retention.DownstreamWindow <= 0 || c.Retention.UpstreamWindow < 0 || c.Retention.IdleTTL <= 0 || c.Retention.PruneActive {
 		return invalid("retention requires positive windows and forbids active pruning")
 	}
 	if c.Retention.DiskWarnBytes <= 0 || c.Retention.DiskLimitBytes <= c.Retention.DiskWarnBytes || c.Retention.SessionLimitBytes < int64(c.Service.MaxMessageBytes)*2 || c.Retention.SessionLimitBytes > c.Retention.DiskLimitBytes {

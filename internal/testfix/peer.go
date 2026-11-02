@@ -70,7 +70,7 @@ func Settings(sender, target, address, dictionary string, initiator bool) (*quic
 }
 
 func Listen(p *Peer, l net.Listener, s *quickfix.Settings) (*quickfix.Acceptor, error) {
-	a, err := quickfix.NewAcceptor(p, quickfix.NewMemoryStoreFactory(), s, quickfix.NewNullLogFactory())
+	a, err := quickfix.NewAcceptor(p, lockedFactory{}, s, quickfix.NewNullLogFactory())
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func Listen(p *Peer, l net.Listener, s *quickfix.Settings) (*quickfix.Acceptor, 
 }
 
 func Connect(p *Peer, s *quickfix.Settings) (*quickfix.Initiator, error) {
-	i, err := quickfix.NewInitiator(p, quickfix.NewMemoryStoreFactory(), s, quickfix.NewNullLogFactory())
+	i, err := quickfix.NewInitiator(p, lockedFactory{}, s, quickfix.NewNullLogFactory())
 	if err != nil {
 		return nil, err
 	}
