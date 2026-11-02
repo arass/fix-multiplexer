@@ -114,7 +114,7 @@ Progress: implemented metadata-only logs, health/metrics, TLS/mTLS, bounded tran
 
 **Phase 5: interoperability and release.** Test against a *different* FIX implementation (e.g. QuickFIX/J) in CI or reproducibly locally; verify README demo and deployment from a clean checkout; check software bill of materials/licenses; tag only after acceptance criteria pass.
 
-Progress: independent QuickFIX/J 2.3.2 peers passed groups/custom fields, admin isolation, both resend directions, durable reconnect and live-only exclusion. Extended race-enabled socket soak passed 50,000 orders/reports, ten clients, 100 reconnects and 499,900 report deliveries; offline downstream cleanup returned 103,501,141 bytes to 820 bytes of metadata. Added CI interop/manual socket-soak jobs and linked-binary module/license inventory. Clean-checkout reproduction is the final verification step. Release/tag and project licensing remain deferred by owner choice; outstanding optional stress variants remain explicit in docs/TEST_STATUS.md.
+Progress: independent QuickFIX/J 2.3.2 peers passed groups/custom fields, admin isolation, both resend directions, durable reconnect and live-only exclusion. Extended race-enabled socket soak passed 50,000 orders/reports, ten clients, 100 reconnects and 499,900 report deliveries; offline downstream cleanup returned 103,501,141 bytes to 820 bytes of metadata. Added CI interop/manual socket-soak jobs and linked-binary module/license inventory. The documented Compose demo passed from a clean local clone at 6039d6f; its executable SHA256 matches the recorded inventory. Release/tag and project licensing remain deferred by owner choice; outstanding stress variants remain explicit in docs/TEST_STATUS.md.
 
 ## Acceptance criteria
 
