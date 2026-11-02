@@ -14,9 +14,18 @@ jobs:
       - run: go vet ./...
       - run: go test -short -coverprofile=coverage.out ./...
       - run: go test -race ./...
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+      - run: go test -race -tags=integration ./...
   container:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t fix-multiplexer .
       - run: docker run --rm fix-multiplexer -check-config
+      - run: docker run --rm fix-multiplexer -demo

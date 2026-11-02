@@ -2,7 +2,7 @@
 
 ## Current state
 
-Phase 1 in progress. Implemented strict YAML validation, bounded settings, FIX 4.4-only policy, safe credential references, and CLI -check-config. Session runtime is the next step. User decisions in CODEX_TASK.md take precedence over earlier suggestions.
+Phase 1 implemented; Phase 2 validation in progress. Runnable gateway and synthetic local three-client demo exist. Retention enforcement, operational hardening and independent-engine interoperability are pending. User decisions in CODEX_TASK.md take precedence over earlier suggestions.
 
 ## Completed
 
@@ -24,9 +24,11 @@ Phase 1 in progress. Implemented strict YAML validation, bounded settings, FIX 4
 
 ## Next action
 
-Complete Phase 1 with injected routing/session interfaces, local mock engines, three-client connection proof and runnable gateway. Engine v0.9.12 source inspected: FromApp handles inbound traffic, ToApp is also invoked for outbound resend; SendToTarget persists/queues but does not acknowledge peer receipt; file store has no built-in age/size retention. No engine modifications planned.
+Continue Phase 2 regression/integration tests, then Phase 3 retention and restart/replay. Implemented injected engine-independent router and session registry, independent client workers, bounded message queues plus shared 64MiB byte budget, session-generation checks, per-target reconstruction, standard gateway BusinessMessageReject and valid inbound PossDup forwarding. Engine source review and initial license notices recorded in docs/PRIOR_ART.md. No engine modifications.
 
 Milestone 1a checks: native go fmt, go vet ./..., go test ./..., coverage and CLI sample validation passed. Config statement coverage: 99.1%. Linux go test -race ./... passed. Actual Dockerfile built and application container -check-config passed. CLI coverage is not included in the core target. Added CI and Docker packaging. Socket integration coverage remains pending.
+
+Milestone 1b: native unit tests, vet and real-socket integration passed. Linux race tests including integration passed after lifecycle cleanup changes. Actual gateway container built and its -demo passed. Core fast-test coverage: config 99.1%, routing 100%, sessions 100%; adapter coverage still incomplete and measured separately. Demo proves three clients/one upstream, custom-tag/business-ID fidelity, report fanout, live-only logout behavior and identified gateway 35=j outage error. Nested repeating-group regression passes. Embedded-SOH EncodedText is an engine limitation, documented and tested as unsupported. Retention fields are parsed but NOT YET enforced. No project license granted yet.
 
 ## Pending milestones
 

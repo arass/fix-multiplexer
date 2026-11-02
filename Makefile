@@ -1,10 +1,12 @@
-.PHONY: fmt vet test race coverage check smoke
+.PHONY: fmt vet test integration race coverage check smoke
 fmt:
 	go fmt ./...
 vet:
 	go vet ./...
 test:
 	go test -short ./...
+integration:
+	go test -tags=integration ./...
 race:
 	go test -race ./...
 coverage:
@@ -13,3 +15,4 @@ check: fmt vet test race coverage
 smoke:
 	docker build -t fix-multiplexer .
 	docker run --rm fix-multiplexer -check-config
+	docker run --rm fix-multiplexer -demo

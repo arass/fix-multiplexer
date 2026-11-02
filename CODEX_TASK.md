@@ -98,7 +98,7 @@ LICENSE
 
 **Phase 1: skeleton and semantics.** Verify QuickFIX/Go APIs and licensing; config validation; local mock upstream and downstream clients; core routing interfaces and in-memory test fakes; CI and README. Prove two simultaneous downstream clients and one upstream FIX session.
 
-Progress: strict config validation and CLI sample check implemented (milestone 1a); session runtime, fakes and three-client proof remain pending. See docs/IMPLEMENTATION_STATUS.md for executed checks.
+Progress: Phase 1 implemented in milestones 1a/1b: strict config, CLI, engine-independent core/fakes, local engine peers and three-client proof. See docs/IMPLEMENTATION_STATUS.md for executed checks and remaining limitations.
 
 **Phase 2: forwarding and fanout.** Forward supported app messages and broadcast reports; correctly rebuild FIX sessions; preserve groups and custom tags; enforce allowlist and connection-state behavior; add unit and real-socket integration tests.
 

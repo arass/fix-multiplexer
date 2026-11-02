@@ -4,7 +4,7 @@
 
 FIX Multiplexer is a standalone **FIX-to-FIX session multiplexer** for trading-system development, QA, certification rehearsals, and shared UAT environments. It lets multiple independent FIX clients connect to a single FIX counterparty session without changing those clients to use REST, WebSockets, or a proprietary SDK.
 
-> **Project status:** Phase 1 in progress. Strict YAML configuration validation and a CLI are implemented; the FIX runtime and multi-client demo are pending. See [implementation checkpoint](docs/IMPLEMENTATION_STATUS.md).
+> **Project status:** Phase 1 implemented; forwarding tests are in progress. The CLI, local three-client demo and FIX 4.4 runtime work. Retention enforcement, full operational hardening and independent-engine interoperability are pending; do not deploy this checkpoint beyond local development. See [implementation checkpoint](docs/IMPLEMENTATION_STATUS.md).
 
 ```text
 Dev A ── FIX ──┐
@@ -80,20 +80,26 @@ Go 1.23 or newer is required (development checks currently use 1.27.3).
 
 ```sh
 go run ./cmd/fix-multiplexer -config config/example.yaml -check-config
+go run ./cmd/fix-multiplexer -demo
 go vet ./...
 go test -short ./...
+go test -tags=integration ./...
 ```
 
 On this Windows workspace, the verified local toolchain is `.tools/go/bin/go.exe`; it is not added to PATH. Linux race checks can run in the official Go container. Configuration currently requires loopback listeners; unknown fields and unsupported FIX versions fail startup. Credential values belong in environment/file references. Defaults and the sample are validated by tests.
 
-**No runnable release exists in this starter repository yet.** The implementation task calls for a reproducible Docker Compose demo containing:
+The `-demo` command starts a local mock venue, the gateway and three clients, verifies orders, fanout, live-only disconnection behavior and a standard gateway error on upstream outage, then exits. It uses temporary session stores and synthetic data. No venue credentials are required. A Docker Compose deployment is still pending:
 
 1. A mock FIX acceptor acting as the upstream counterparty.
 2. The FIX multiplexer with one upstream initiator and multiple downstream acceptor sessions.
 3. Three independent FIX test clients.
 4. Automated smoke tests proving that orders reach the upstream counterparty and application-level reports reach connected clients.
 
-Once implemented, this section should be replaced with **verified** build, configuration, and startup commands, including the exact Docker Compose invocation and sample FIX session identifiers.
+To run the current gateway against separately started local peers, use `go run ./cmd/fix-multiplexer -config config/example.yaml`. Its file stores persist independently. Current limitations: no retention enforcement yet, message-size checking occurs after engine parsing, and complete management/TLS/resource-failure testing is pending. Startup and forwarding checks do not guarantee production suitability.
+
+The adapter reconstructs business fields and dictionary-defined nested groups. All original header/trailer fields are discarded except MsgType, including OnBehalfOf/DeliverTo and PossDup/OrigSendingTime; inbound PossDup application messages are routed as fresh messages on the other session. Unknown scalar body tags survive; custom groups require the same customized XML dictionary on both sides. Top-level body fields follow engine ordering. Embedded SOH in EncodedText is currently unsupported by the engine; no custom parser is added. See docs/PRIOR_ART.md.
+
+This product includes software developed by quickfixengine.org (http://www.quickfixengine.org/). See [third-party notices](THIRD_PARTY_NOTICES.md).
 
 For contributors implementing the project, start with [CODEX_TASK.md](CODEX_TASK.md), [AGENTS.md](AGENTS.md), and [config/example.yaml](config/example.yaml).
 

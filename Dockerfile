@@ -9,4 +9,6 @@ FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
 COPY --from=build /fix-multiplexer /app/fix-multiplexer
 COPY config/example.yaml /app/config/example.yaml
+COPY spec /app/spec
+COPY third_party /app/third_party
 ENTRYPOINT ["/app/fix-multiplexer"]
