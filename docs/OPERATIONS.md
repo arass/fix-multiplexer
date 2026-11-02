@@ -22,6 +22,8 @@ Each FIX session owns its sequences and outbound history. Valid inbound PossDup 
 
 Age limits govern replay eligibility, not rolling deletion from active stores. Engine files can retain older bytes until offline cleanup, while `session_limit_bytes` and aggregate `disk_limit_bytes` bound growth. Store writes include an overhead reservation. A durability/budget failure is latched and stops further application forwarding until the issue is resolved and the daemon restarted. No required history is silently erased. The CLI enforces overall startup/shutdown deadlines. If filesystem I/O prevents graceful shutdown, it exits with an explicit operational error and leaves leases for operator recovery.
 
+Live disk accounting conservatively reserves body/index/sequence overhead before engine writes, plus metadata headroom. Reservations are not returned for overwrites or failed writes. Actual files are reconciled at most once per second of write activity; explicit maintenance inventory also scans disk. Reconciliation never reduces live reservations. The store-byte metric therefore includes headroom and can exceed actual disk usage, and a busy session can hit its budget early. Restart inventories preserved files without deleting history. Do not edit store directories while the daemon owns them.
+
 ## Offline client maintenance
 
 Stop the gateway first. Maintenance acquires the same exclusive leases as the daemon, and refuses concurrent operation. Default maintenance is a dry run.

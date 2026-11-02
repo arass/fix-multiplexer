@@ -1,0 +1,17 @@
+# Synthetic local interoperability fixture; no broker credentials.
+upstream:
+  host: 127.0.0.1
+  port: 9880
+  sender_comp_id: MULTIPLEXER
+  target_comp_id: MOCKVENUE
+  store_dir: ./state/upstream
+  dictionary: /tmp/fix-mux-interop.xml
+downstream:
+  listen: 127.0.0.1:9879
+  target_comp_id: MULTIPLEXER
+  store_dir: ./state/downstream
+  dictionary: /tmp/fix-mux-interop.xml
+  clients:
+    - sender_comp_id: DEV_A
+    - sender_comp_id: DEV_B
+    - sender_comp_id: QA_1

@@ -29,7 +29,7 @@ This checkpoint records executed coverage, not a claim that every variant of eve
 | I10 | Unknown CompID, verified upstream hostname, and downstream mTLS success/failure; password mismatch is unit-tested. Additional combined authentication variants remain useful. |
 | I11 | Real oversize transport disconnect; connection count, byte limits, slow consumer and queue saturation tested with controlled transports/fakes. Sustained socket backpressure stress remains open. |
 | I12 | Defaults disable daily/logon/logout/disconnect resets; explicit offline reset and retirement enforced. Custom daily schedules are not exposed in v1. |
-| I13 | Go wire parser and all three peers verify groups/custom tags; independent-engine verification is the Phase 5 task. |
+| I13 | Go wire parser and all three peers verify groups/custom tags; independent QuickFIX/J 2.3.2 peers also passed groups/custom scalar and independent session identities. |
 | I14–I15 | Container liveness, not-ready without upstream, metadata metrics and SIGTERM exit 0; race/cleanup tests and no raw credential logging. |
 | I16 | Budget/write/metadata/corruption, partial fanout and hard crash injected; physical disk exhaustion during a real socket flood remains open. |
 
@@ -37,4 +37,7 @@ This checkpoint records executed coverage, not a claim that every variant of eve
 
 - Message-copy fuzzing executed in bounded native runs; final milestone run counts are in IMPLEMENTATION_STATUS.md.
 - Core soak passed: 50,000 upstream submissions, 490,000 fanout attempts, ten clients and 100 disconnect/reconnect cycles, including recipient failures. Both native and race runs passed. This uses injected senders; it is not a 50,000-message socket throughput claim.
-- Extended socket soak and independent QuickFIX/J tests are next. Project licensing remains undecided; no public release or tag is authorized.
+- Extended race-enabled socket soak passed: 50,000 orders and reports, ten durable socket clients, 100 reconnects, 499,900 report deliveries, no forwarding failures, and zero routing/engine pending bytes after shutdown. Elapsed 221.7s on this development machine; this is observational, not a performance guarantee. Offline prune reduced downstream store bytes from 103,501,141 to 820, preserving upstream history. Container limits: 1GiB RAM and 512MiB temporary filesystem. This run exercises live-only reconnect, not sustained malicious slow-reader traffic or physical disk exhaustion. Separate earlier hard-kill tests cover process recovery.
+- Initial soak attempts timed out because GOTMPDIR moved Go 1.27 test stores onto Docker overlay storage instead of the intended tmpfs. The documented command uses an executable tmpfs for test binaries and data. No timeout run is counted as a pass.
+- Independent QuickFIX/J 2.3.2 passed three-client orders, grouped/custom-tag fanout, PossDup, admin isolation, genuine resends in both directions, durable reconnect and live-only delivery against the real Go daemon. See interop/quickfixj/README.md.
+- Project licensing remains undecided; no public release or tag is authorized. Remaining variants in the table are not covered by a broad production-readiness claim.

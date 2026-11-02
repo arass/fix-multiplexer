@@ -30,6 +30,7 @@ type State struct {
 type entry struct {
 	root, path string
 	state      State
+	accounted  int64
 }
 type Manager struct {
 	mu                  sync.Mutex
@@ -41,6 +42,7 @@ type Manager struct {
 	used                atomic.Int64
 	closed              bool
 	maintenance         bool
+	lastInventory       time.Time
 	CleanupCount        atomic.Uint64
 }
 
@@ -137,6 +139,13 @@ func (m *Manager) Register(id, root string) (string, error) {
 	if err = os.MkdirAll(e.path, 0700); err != nil {
 		return "", ErrStorage
 	}
+	e.accounted, err = inventory(e.path)
+	// Reserve space for both the metadata marker and its atomic-write temporary.
+	// Existing markers may be counted twice; conservative headroom is intentional.
+	if err != nil || e.accounted > m.sessionLimit || (!m.maintenance && m.used.Load()+512 > m.limit) {
+		return "", ErrStorage
+	}
+	m.used.Add(512)
 	if err = m.save(e); err != nil {
 		return "", ErrStorage
 	}
@@ -181,17 +190,22 @@ func (m *Manager) Write(id string, extra int64, write func() error) error {
 	if !ok || m.closed || m.failed.Load() || e.state.Retired {
 		return ErrStorage
 	}
-	total, err := m.usage()
-	if err != nil {
+	// Inventory at most once per second of write activity, rather than walking
+	// every session directory on every engine sequence-number update. Reservations
+	// never decrease while running, including on failed or overwriting writes.
+	if m.lastInventory.IsZero() || m.now().Sub(m.lastInventory) >= time.Second {
+		if _, err := m.reconcile(); err != nil {
+			m.failed.Store(true)
+			return ErrStorage
+		}
+	}
+	if extra < 0 || extra > m.limit-m.used.Load() || extra > m.sessionLimit-e.accounted {
 		m.failed.Store(true)
 		return ErrStorage
 	}
-	own, err := inventory(e.path)
-	if err != nil || extra < 0 || extra > m.limit-total || extra > m.sessionLimit-own {
-		m.failed.Store(true)
-		return ErrStorage
-	}
-	if err = write(); err != nil {
+	m.used.Add(extra)
+	e.accounted += extra
+	if err := write(); err != nil {
 		m.failed.Store(true)
 		return ErrStorage
 	}
@@ -334,7 +348,34 @@ func (m *Manager) State(id string) (State, bool) {
 	return e.state, true
 }
 
-func (m *Manager) Usage() (int64, error) { m.mu.Lock(); defer m.mu.Unlock(); return m.usage() }
+// Usage inventories actual bytes and reconciles conservative live reservations.
+// CachedUsage includes reservations and can exceed the actual filesystem size.
+func (m *Manager) Usage() (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	n, err := m.reconcile()
+	if err != nil {
+		m.failed.Store(true)
+	}
+	return n, err
+}
+func (m *Manager) reconcile() (int64, error) {
+	n, err := m.usage()
+	if err != nil {
+		return n, err
+	}
+	for _, e := range m.entries {
+		own, err := inventory(e.path)
+		if err != nil || (own > m.sessionLimit && !m.maintenance) {
+			return n, ErrStorage
+		}
+		if own > e.accounted {
+			e.accounted = own
+		}
+	}
+	m.lastInventory = m.now()
+	return n, nil
+}
 func (m *Manager) usage() (int64, error) {
 	var total int64
 	for _, r := range m.roots {
@@ -344,7 +385,9 @@ func (m *Manager) usage() (int64, error) {
 		}
 		total += n
 	}
-	m.used.Store(total)
+	if total > m.used.Load() {
+		m.used.Store(total)
+	}
 	if total > m.limit && !m.maintenance {
 		return total, ErrStorage
 	}

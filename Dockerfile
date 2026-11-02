@@ -3,7 +3,7 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -o /fix-multiplexer ./cmd/fix-multiplexer
+RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false -o /fix-multiplexer ./cmd/fix-multiplexer
 RUN mkdir -p /state/upstream /state/downstream && chmod 700 /state /state/upstream /state/downstream
 
 FROM build AS test
@@ -20,5 +20,6 @@ COPY --from=build /fix-multiplexer /app/fix-multiplexer
 COPY config/example.yaml /app/config/example.yaml
 COPY spec /app/spec
 COPY third_party /app/third_party
+COPY THIRD_PARTY_NOTICES.md /app/THIRD_PARTY_NOTICES.md
 COPY --from=build --chown=65532:65532 /state /app/state
 ENTRYPOINT ["/app/fix-multiplexer"]

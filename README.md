@@ -4,7 +4,7 @@
 
 FIX Multiplexer is a standalone **FIX-to-FIX session multiplexer** for trading-system development, QA, certification rehearsals, and shared UAT environments. It lets multiple independent FIX clients connect to a single FIX counterparty session without changing those clients to use REST, WebSockets, or a proprietary SDK.
 
-> **Project status:** Phases 1–4 have working implementations and local regression tests. Independent-engine interoperability and final acceptance auditing are in progress. This is a nonproduction development checkpoint, with licensing undecided; no release is published. See [implementation checkpoint](docs/IMPLEMENTATION_STATUS.md).
+> **Project status:** Phases 1–5 have working implementations and local regression evidence, including independent QuickFIX/J peers and an extended socket soak. This is a nonproduction development checkpoint, with licensing undecided; no release is published. See [implementation checkpoint](docs/IMPLEMENTATION_STATUS.md) and [acceptance evidence and remaining variants](docs/TEST_STATUS.md).
 
 ```text
 Dev A ── FIX ──┐
@@ -32,9 +32,9 @@ FIX Multiplexer is designed to act as a **FIX protocol proxy server**: downstrea
 - **Minimal business interference:** no order-owner database, `ClOrdID (11)` rewriting, or order-state tracking in the default mode.
 - **Bounded resource use:** configurable session limits, retention policies, and cleanup for retired clients.
 - **Broker-neutral configuration:** no hardcoded counterparty, proprietary data dictionary, or customer-specific logic.
-- **Docker-first testing:** a planned self-contained demo with a simulated FIX counterparty and multiple clients.
+- **Docker-first testing:** a self-contained demo with a simulated FIX counterparty and multiple clients.
 
-The proposed implementation uses [QuickFIX/Go](https://github.com/quickfixgo/quickfix), but the published service is intended to be usable by clients written in **any language** with a compatible FIX engine.
+The implementation uses [QuickFIX/Go](https://github.com/quickfixgo/quickfix) and accepts clients written in **any language** with a compatible FIX 4.4 engine. The independent Java fixture uses QuickFIX/J.
 
 ## Example use cases
 
@@ -47,7 +47,7 @@ The proposed implementation uses [QuickFIX/Go](https://github.com/quickfixgo/qui
 
 ## How message forwarding works
 
-| Traffic | Planned behavior |
+| Traffic | Behavior |
 |---|---|
 | Downstream → upstream application messages | Forward supported application messages through the single upstream FIX session, retaining business fields where possible while regenerating session headers and trailer. |
 | Upstream → downstream application messages | Broadcast to all currently connected, authorized downstream sessions; each receives its own sequence numbers. |
@@ -59,7 +59,7 @@ The proposed implementation uses [QuickFIX/Go](https://github.com/quickfixgo/qui
 
 FIX session recovery is **not the same as end-to-end message recovery**. Each session's engine may resend messages already entered into its outgoing sequence stream. However, a client that is disconnected during a broadcast will not receive messages that were never sent to its session.
 
-The planned downstream replay-history window defaults to a configurable **8 hours**, separately from upstream retention. Older history is not guaranteed; explicit reset/reprovisioning is required when retained history cannot satisfy recovery. Valid inbound `PossDup` application messages are forwarded, and downstream applications must tolerate duplicates. During upstream outages, the gateway returns an identified, standard FIX error rather than a venue execution report.
+The downstream replay-history window defaults to a configurable **8 hours**, separately from upstream retention. Older history is not guaranteed; explicit reset/reprovisioning is required when retained history cannot satisfy recovery. Valid inbound `PossDup` application messages are forwarded, and downstream applications must tolerate duplicates. During upstream outages, the gateway returns an identified, standard FIX error rather than a venue execution report.
 
 To prevent abandoned development sessions from consuming disk indefinitely, the design requires configurable retention and safe cleanup of inactive session stores. Expired state may require an explicitly coordinated FIX sequence reset on the next connection.
 
@@ -101,6 +101,16 @@ The demo contains:
 2. The FIX multiplexer with one upstream initiator and multiple downstream acceptor sessions.
 3. Three independent FIX test clients.
 4. Automated smoke tests proving that orders reach the upstream counterparty and application-level reports reach connected clients.
+
+Independent-engine checks are reproducible with [QuickFIX/J](interop/quickfixj/README.md). The extended socket soak runs separately from fast tests:
+
+```sh
+docker build --target build -t fix-multiplexer-build .
+docker run --rm --network none --tmpfs /tmp:exec,size=512m --memory 1g fix-multiplexer-build go test -race -tags=integration,socketsoak ./internal/fixadapter -run TestSocketSoak -timeout=21m -v
+docker run --rm --network none fix-multiplexer-build go run ./scripts/sbom /fix-multiplexer
+```
+
+The final command emits a linked Go module inventory, including executable SHA256; the verified Linux build inventory is in [docs/sbom-linux-amd64.json](docs/sbom-linux-amd64.json). It does not inventory OS packages or imply a vulnerability audit. Container build dependencies require public downloads; tests use synthetic local peers.
 
 To run the gateway against separately started local peers, use `go run ./cmd/fix-multiplexer -config config/example.yaml`. Its file stores persist independently. Eight-hour downstream replay eligibility, disk budgets and explicit offline retirement/reset are enforced. Read [operations and crash recovery](docs/OPERATIONS.md) before using persistent stores. `/live`, `/ready` and `/metrics` bind to loopback by default; `-probe live`, `-probe ready` and `-probe metrics` query them. TLS/mTLS, transport limits, metadata-only logs and startup/shutdown deadlines are implemented. Full acceptance evidence and remaining gaps are tracked in [test status](docs/TEST_STATUS.md).
 

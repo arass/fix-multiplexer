@@ -268,7 +268,12 @@ type trackingFactory struct {
 }
 
 func (f trackingFactory) Create(id quickfix.SessionID) (quickfix.MessageStore, error) {
-	s, err := f.base.Create(id)
+	var s quickfix.MessageStore
+	err := f.manager.Write(id.String(), 256, func() error {
+		var err error
+		s, err = f.base.Create(id)
+		return err
+	})
 	if err == nil {
 		s = &guardedStore{MessageStore: s, manager: f.manager, id: id.String(), window: f.window, now: time.Now}
 		*f.stores = append(*f.stores, s)

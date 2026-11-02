@@ -172,7 +172,7 @@ func TestBudgetAndStoreFailures(t *testing.T) {
 				t.Fatal(err)
 			}
 			usage, e := m.Usage()
-			if e != nil || m.CachedUsage() != usage {
+			if e != nil || m.CachedUsage() < usage {
 				t.Fatal("store usage metric mismatch", e)
 			}
 			if _, err = m.Usage(); err != nil {
@@ -195,6 +195,9 @@ func TestBudgetAndStoreFailures(t *testing.T) {
 				}
 				if err = os.WriteFile(dir, make([]byte, 10001), 0600); err != nil {
 					t.Fatal(err)
+				}
+				if _, err = m.Usage(); err == nil {
+					t.Fatal("external growth not detected")
 				}
 			}
 			if m.Write("a", extra, callback) == nil || m.Healthy() {
@@ -244,5 +247,48 @@ func TestMetadataAndLeaseErrors(t *testing.T) {
 	}
 	if m.Connected("a", true) == nil || m.Healthy() {
 		t.Fatal("metadata failure hidden")
+	}
+}
+
+func TestReservationsSurviveReconciliationAndDetectExternalGrowth(t *testing.T) {
+	for _, kind := range []string{"reserved-budget", "external-session-growth", "global-headroom"} {
+		t.Run(kind, func(t *testing.T) {
+			root := t.TempDir()
+			now := time.Now()
+			limit := int64(10000)
+			if kind == "global-headroom" {
+				limit = 500
+			}
+			m, err := Open([]string{root}, limit, 1000, func() time.Time { return now })
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer m.Close()
+			dir, err := m.Register("client", root)
+			if kind == "global-headroom" {
+				if err == nil {
+					t.Fatal("metadata headroom exceeded global budget")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = m.Write("client", 600, func() error { return nil }); err != nil {
+				t.Fatal(err)
+			}
+			reserved := m.CachedUsage()
+			now = now.Add(time.Second)
+			if kind == "external-session-growth" {
+				if err = os.WriteFile(filepath.Join(dir, "external"), make([]byte, 1001), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			called := false
+			err = m.Write("client", 401, func() error { called = true; return nil })
+			if err == nil || called || m.Healthy() || m.CachedUsage() < reserved {
+				t.Fatal("reservation or external-growth failure was lost")
+			}
+		})
 	}
 }

@@ -1,5 +1,5 @@
 name: checks
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 jobs:
@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.27.3'
-      - run: test -z "$(gofmt -l cmd internal)"
+      - run: test -z "$(gofmt -l cmd internal scripts)"
       - run: go vet ./...
       - run: go test -short -coverprofile=coverage.out ./...
       - run: go run ./scripts/check-coverage.go coverage.out
@@ -39,3 +39,17 @@ jobs:
         with:
           go-version: '1.27.3'
       - run: go test -race -tags=soak ./internal/gateway -run TestRoutingSoak -timeout=60s
+  interoperability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f interop/quickfixj/Dockerfile -t fix-multiplexer-interop .
+      - run: docker run --rm --network none --memory 512m fix-multiplexer-interop
+  socket-soak:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --target build -t fix-multiplexer-build .
+      - run: docker run --rm --network none --tmpfs /tmp:exec,size=512m --memory 1g fix-multiplexer-build go test -race -tags=integration,socketsoak ./internal/fixadapter -run TestSocketSoak -timeout=21m -v
