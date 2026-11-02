@@ -1,4 +1,4 @@
-# NONFUNCTIONAL EXAMPLE: top-level YAML schema to be implemented and validated by Codex.
+# Validated top-level YAML schema. FIX runtime is being implemented in phases.
 # No real credentials, private endpoints, or public listener defaults.
 service:
   name: fix-multiplexer

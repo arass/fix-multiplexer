@@ -2,7 +2,7 @@
 
 ## Current state
 
-Specification-only repository; no gateway implementation yet. Go is confirmed. User decisions are recorded in CODEX_TASK.md and take precedence over earlier suggestions.
+Phase 1 in progress. Implemented strict YAML validation, bounded settings, FIX 4.4-only policy, safe credential references, and CLI -check-config. Session runtime is the next step. User decisions in CODEX_TASK.md take precedence over earlier suggestions.
 
 ## Completed
 
@@ -24,7 +24,9 @@ Specification-only repository; no gateway implementation yet. Go is confirmed. U
 
 ## Next action
 
-Begin Phase 1 implementation and complete current engine/prior-art review. Engine source inspection has begun (message copying, replay callbacks, reject construction, store APIs and license); no gateway code or project test results exist yet.
+Complete Phase 1 with injected routing/session interfaces, local mock engines, three-client connection proof and runnable gateway. Engine v0.9.12 source inspected: FromApp handles inbound traffic, ToApp is also invoked for outbound resend; SendToTarget persists/queues but does not acknowledge peer receipt; file store has no built-in age/size retention. No engine modifications planned.
+
+Milestone 1a checks: native go fmt, go vet ./..., go test ./..., coverage and CLI sample validation passed. Config statement coverage: 99.1%. Linux go test -race ./... passed. Actual Dockerfile built and application container -check-config passed. CLI coverage is not included in the core target. Added CI and Docker packaging. Socket integration coverage remains pending.
 
 ## Pending milestones
 

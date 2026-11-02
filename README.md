@@ -4,7 +4,7 @@
 
 FIX Multiplexer is a standalone **FIX-to-FIX session multiplexer** for trading-system development, QA, certification rehearsals, and shared UAT environments. It lets multiple independent FIX clients connect to a single FIX counterparty session without changing those clients to use REST, WebSockets, or a proprietary SDK.
 
-> **Project status:** Implementation specification / starter repository. The gateway and Docker demo described below are planned, not yet shipped. See [CODEX_TASK.md](CODEX_TASK.md) for the implementation brief.
+> **Project status:** Phase 1 in progress. Strict YAML configuration validation and a CLI are implemented; the FIX runtime and multi-client demo are pending. See [implementation checkpoint](docs/IMPLEMENTATION_STATUS.md).
 
 ```text
 Dev A ── FIX ──┐
@@ -75,6 +75,16 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the proposed failure seman
 - Do not use for production order routing without substantially more isolation, delivery guarantees, security controls, and validation.
 
 ## Getting started
+
+Go 1.23 or newer is required (development checks currently use 1.27.3).
+
+```sh
+go run ./cmd/fix-multiplexer -config config/example.yaml -check-config
+go vet ./...
+go test -short ./...
+```
+
+On this Windows workspace, the verified local toolchain is `.tools/go/bin/go.exe`; it is not added to PATH. Linux race checks can run in the official Go container. Configuration currently requires loopback listeners; unknown fields and unsupported FIX versions fail startup. Credential values belong in environment/file references. Defaults and the sample are validated by tests.
 
 **No runnable release exists in this starter repository yet.** The implementation task calls for a reproducible Docker Compose demo containing:
 

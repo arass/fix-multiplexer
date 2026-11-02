@@ -1,0 +1,7 @@
+.git
+.idea
+.codex
+.tools
+.gocache
+state
+coverage.out
