@@ -104,6 +104,9 @@ func (a *Application) FromAdmin(m *quickfix.Message, id quickfix.SessionID) quic
 	if expected := a.ClientPasswords[id.String()]; expected != "" {
 		actual, err := m.Body.GetString(554)
 		if err != nil || subtle.ConstantTimeCompare([]byte(expected), []byte(actual)) != 1 {
+			if a.Observer != nil {
+				a.Observer.AuthenticationFailure(id.String())
+			}
 			return quickfix.RejectLogon{Text: "gateway: authentication failed"}
 		}
 	}
@@ -164,8 +167,8 @@ func ResolveSecret(s config.Secret) (string, error) {
 		if !ok || value == "" {
 			return "", errors.New("credential environment reference unavailable")
 		}
-		if strings.ContainsAny(value, "\x00\x01\r\n") {
-			return "", errors.New("credential contains forbidden control bytes")
+		if len(value) > 4096 || strings.ContainsAny(value, "\x00\x01\r\n") {
+			return "", errors.New("credential environment reference invalid")
 		}
 		return value, nil
 	}

@@ -178,6 +178,13 @@ func TestDownstreamLogonUsesSeparatePassword(t *testing.T) {
 					}
 				}
 			}
+			wantFailures := uint64(1)
+			if tc.accepted {
+				wantFailures = 0
+			}
+			if r.Snapshot().AuthFailures != wantFailures {
+				t.Fatal("unexpected authentication failure count")
+			}
 		})
 	}
 }

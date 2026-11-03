@@ -15,13 +15,13 @@ import (
 )
 
 type Recorder struct {
-	log                  *slog.Logger
-	Replay, EngineErrors atomic.Uint64
-	Errors               chan struct{}
-	errorMu              sync.Mutex
-	lastErrorLog         time.Time
-	suppressedErrors     uint64
-	now                  func() time.Time
+	log                                *slog.Logger
+	Replay, EngineErrors, AuthFailures atomic.Uint64
+	Errors                             chan struct{}
+	errorMu                            sync.Mutex
+	lastErrorLog                       time.Time
+	suppressedErrors                   uint64
+	now                                func() time.Time
 }
 
 func New(w io.Writer) *Recorder {
@@ -43,7 +43,14 @@ func (r *Recorder) EngineError(id string) {
 	case r.Errors <- struct{}{}:
 	default:
 	}
-	// Bound unauthenticated error-log floods while keeping every event in the
+	r.errorEvent("engine_error", id, "suppressed to protect FIX content")
+}
+func (r *Recorder) AuthenticationFailure(id string) {
+	r.AuthFailures.Add(1)
+	r.errorEvent("authentication_failed", id, "invalid credentials")
+}
+func (r *Recorder) errorEvent(event, id, detail string) {
+	// Bound unauthenticated error-log floods while keeping every event in its
 	// metric. Summarize suppressed events on the next emitted error.
 	r.errorMu.Lock()
 	defer r.errorMu.Unlock()
@@ -55,7 +62,7 @@ func (r *Recorder) EngineError(id string) {
 	suppressed := r.suppressedErrors
 	r.suppressedErrors = 0
 	r.lastErrorLog = now
-	r.log.Error("engine_error", "session", Label(id), "detail", "suppressed to protect FIX content", "suppressed_errors", suppressed)
+	r.log.Error(event, "session", Label(id), "detail", detail, "suppressed_errors", suppressed)
 }
 func (r *Recorder) Operational(outcome string) { r.log.Info("gateway", "outcome", outcome) }
 
@@ -64,12 +71,12 @@ type Session struct {
 	LoggedOn, Enabled bool
 }
 type Snapshot struct {
-	Ready                                                                   bool
-	Forwarded, Failed, Dropped, Recipients, Replays, EngineErrors, Cleanups uint64
-	QueueBytes, QueueDepth, StoreBytes                                      int64
-	EngineQueueBytes                                                        int64
-	StoreWarning                                                            bool
-	Sessions                                                                []Session
+	Ready                                                                                 bool
+	Forwarded, Failed, Dropped, Recipients, Replays, EngineErrors, AuthFailures, Cleanups uint64
+	QueueBytes, QueueDepth, StoreBytes                                                    int64
+	EngineQueueBytes                                                                      int64
+	StoreWarning                                                                          bool
+	Sessions                                                                              []Session
 }
 type Provider interface{ Snapshot() Snapshot }
 type ProviderFunc func() Snapshot
@@ -110,7 +117,7 @@ func Handler(p Provider) http.Handler {
 		for _, v := range []struct {
 			name  string
 			value uint64
-		}{{"forwarded_total", s.Forwarded}, {"failed_total", s.Failed}, {"dropped_total", s.Dropped}, {"fanout_recipients_total", s.Recipients}, {"replays_total", s.Replays}, {"engine_errors_total", s.EngineErrors}, {"cleanup_total", s.Cleanups}} {
+		}{{"forwarded_total", s.Forwarded}, {"failed_total", s.Failed}, {"dropped_total", s.Dropped}, {"fanout_recipients_total", s.Recipients}, {"replays_total", s.Replays}, {"engine_errors_total", s.EngineErrors}, {"auth_failures_total", s.AuthFailures}, {"cleanup_total", s.Cleanups}} {
 			fmt.Fprintf(w, "fix_mux_%s %d\n", v.name, v.value)
 		}
 		fmt.Fprintf(w, "fix_mux_queue_bytes %d\nfix_mux_queue_depth %d\nfix_mux_store_bytes %d\nfix_mux_ready %d\nfix_mux_store_warning %d\n", s.QueueBytes, s.QueueDepth, s.StoreBytes, boolean(s.Ready), boolean(s.StoreWarning))

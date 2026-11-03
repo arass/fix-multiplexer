@@ -253,11 +253,15 @@ func TestResolveSecret(t *testing.T) {
 	if err != nil || v != "synthetic-only" {
 		t.Fatal(err)
 	}
-	for _, value := range []string{"", "bad\x01value", "bad\nvalue"} {
+	for _, value := range []string{"", "bad\x01value", "bad\nvalue", strings.Repeat("x", 4097)} {
 		t.Setenv("MUX_TEST_SECRET", value)
 		if _, err := ResolveSecret(config.Secret{Env: "MUX_TEST_SECRET"}); err == nil {
 			t.Fatal("bad secret")
 		}
+	}
+	t.Setenv("MUX_TEST_SECRET", strings.Repeat("x", 4096))
+	if _, err := ResolveSecret(config.Secret{Env: "MUX_TEST_SECRET"}); err != nil {
+		t.Fatal("boundary secret rejected", err)
 	}
 	if _, err := ResolveSecret(config.Secret{Env: "MUX_MISSING_TEST_SECRET"}); err == nil {
 		t.Fatal("missing env")

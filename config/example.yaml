@@ -30,12 +30,22 @@ downstream:
   fix_version: FIX.4.4
   listen: 127.0.0.1:9879 # local by default; network addresses require TLS and client passwords
   target_comp_id: MULTIPLEXER # each client's TargetCompID
+  # To accept network connections, enable TLS and provide your certificate and key.
+  # tls_enabled: true
+  # tls:
+  #   cert_file: /path/to/gateway-cert.pem
+  #   key_file: /path/to/gateway-key.pem
   # Each client must use its own SenderCompID. Up to 128 entries are supported.
-  # An allowlisted CompID alone is not a password; configure authentication as needed.
+  # Set a separate password for each client; the client sends it in FIX Logon tag 554.
+  # Passwords are required for network listeners. Without one, local access relies
+  # on SenderCompID alone. Never put actual passwords in this file.
   clients:
     - sender_comp_id: DEV_A
+      # password: {env: FIX_DEV_A_PASSWORD}
     - sender_comp_id: DEV_B
+      # password: {env: FIX_DEV_B_PASSWORD}
     - sender_comp_id: QA_1
+      # password: {env: FIX_QA_1_PASSWORD}
   store_dir: ./state/downstream # separate durable history for each client session
 fanout:
   mode: live-only # clients miss broadcasts while disconnected; no offline queue

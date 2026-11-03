@@ -22,13 +22,13 @@ There is currently no per-IP authentication rate limit or lockout. The transport
 
 ## Fixed: upstream bridge accepted unauthenticated local processes
 
-The upstream transport bridge listens on an ephemeral loopback TCP port and accepts a connection without authenticating its local peer (`internal/transport/bridge.go`). It then opens the configured upstream connection, including using the configured TLS client certificate if present. A local process able to connect to that port can occupy the bridge and send bytes through the gateway's upstream transport. This can bypass downstream allowlisting and, where the venue trusts the gateway's client certificate, provide a path to impersonation. It also permits denial of service by occupying the bridge. The peer must discover the port and meet any separate venue authentication requirements; the issue does not by itself establish credential disclosure.
+Previously, the upstream transport bridge accepted connections on its ephemeral loopback TCP port without authenticating the local peer. It then opened the configured upstream connection, including using the configured TLS client certificate if present. A local process able to connect to that port could occupy the bridge and send bytes through the gateway's upstream transport, bypassing downstream allowlisting and potentially impersonating the gateway. The peer needed to discover the port and meet any separate venue authentication requirements; the issue did not by itself establish credential disclosure.
 
 **Status: fixed in the working code.** The engine and private bridge now mutually authenticate using a process-specific ephemeral TLS identity generated in memory. The bridge completes the handshake before dialing the configured upstream; a local peer with no certificate or an unrelated certificate is rejected. A local test verifies both rejection and a subsequent successful authenticated connection, and the real upstream TLS, persistent recovery, race-enabled integration, QuickFIX/J interoperability and container smoke checks passed. Local peers can still attempt to occupy the bounded handshake for up to five seconds at a time, so this is not a guarantee against local denial of service or privileged access to process memory. Continue to isolate the gateway from untrusted local processes.
 
 ## Trust and storage
 
-Downstream authentication is optional; without a configured password or mTLS, the allowlisted CompID is an identifier rather than a secret. All connected clients receive broadcasts. Deploy only among mutually trusted clients and local processes, and explicitly configure appropriate authentication. FIX file stores contain message payloads and must be protected by filesystem permissions and host/container access controls. Existing directories retain their existing permissions; verify them during deployment.
+Downstream authentication is optional on loopback listeners; without a configured password or mTLS, the allowlisted CompID is an identifier rather than a secret. Non-loopback listeners require TLS and a password for every enabled client. All connected clients receive broadcasts. Deploy only among mutually trusted clients and local processes, and explicitly configure appropriate authentication. FIX file stores contain message payloads and must be protected by filesystem permissions and host/container access controls. Existing directories retain their existing permissions; verify them during deployment.
 
 ### Client certificates are not bound to individual FIX identities
 
@@ -47,6 +47,10 @@ On 2026-11-02, `govulncheck v1.1.4 ./...` using Go 1.27.3 initially reported zer
 ## Fixed: bounded metadata reads
 
 Session metadata was read entirely into memory before its 4 KiB size check. A locally writable oversized or growing marker could therefore cause excessive allocation during startup or offline maintenance. Reads now stop at 4,097 bytes and reject oversized data. Unit tests cover both paths and the read bound. This does not make store directories safe to share with untrusted users or eliminate filesystem races.
+
+Environment-referenced credentials previously lacked the 4,096-byte limit already applied to credential files. Both sources now reject oversized credentials before a session starts; boundary and failure cases are tested. These references are controlled by the operator, not by an unauthenticated remote client.
+
+Missing or incorrect configured-session passwords previously did not reliably produce an operator-visible authentication event. They now increment `fix_mux_auth_failures_total` and produce a generic, session-hashed event subject to the shared one-per-second error-log limit. Suppressed authentication and engine events are counted together in the next log; their metrics remain separate. Unknown sessions and TLS handshake failures are not included in the authentication counter. This improves detection but does not limit attempts.
 
 ## Remaining review tasks
 

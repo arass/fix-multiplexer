@@ -85,8 +85,14 @@ func TestApplicationRoutingPossDupAndReplay(t *testing.T) {
 		t.Fatal("bad password")
 	}
 	logon.Body.SetString(554, "synthetic-client")
+	if a.Observer.AuthFailures.Load() != 2 {
+		t.Fatal("failed logons not counted")
+	}
 	if rej := a.FromAdmin(logon, client); rej != nil {
 		t.Fatal(rej)
+	}
+	if a.Observer.AuthFailures.Load() != 2 {
+		t.Fatal("successful logon counted as failure")
 	}
 	logon.Body.SetBool(141, true)
 	if a.FromAdmin(logon, client) == nil {

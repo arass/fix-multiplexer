@@ -126,7 +126,7 @@ The gateway initiates **one** FIX 4.4 session to your counterparty and accepts s
 
 ### FIX credentials and TLS configuration
 
-The following are **partial YAML examples** to merge into the matching sections of your local configuration. Set the referenced environment variables securely in the gateway process environment; do not put credential values in YAML or commit them. A `file` reference can be used instead of `env`, for example `password: {file: /path/to/mounted/secret}`.
+The following are **partial YAML examples** to merge into the matching sections of your local configuration. Set the referenced environment variables securely in the gateway process environment; do not put credential values in YAML or commit them. A `file` reference can be used instead of `env`, for example `password: {file: /path/to/mounted/secret}`. Credentials must be nonempty, at most 4,096 bytes, and free of FIX delimiter and newline characters.
 
 ```yaml
 upstream:

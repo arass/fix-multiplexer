@@ -199,7 +199,7 @@ func (r *Runtime) Start() error {
 
 func (r *Runtime) Snapshot() observability.Snapshot {
 	g := r.Router
-	s := observability.Snapshot{Ready: g.Ready() && r.Stores.Healthy(), Forwarded: g.Counters.Forwarded.Load(), Failed: g.Counters.Failed.Load(), Dropped: g.Counters.Dropped.Load(), Recipients: g.Counters.Recipients.Load(), Replays: r.Observer.Replay.Load(), EngineErrors: r.Observer.EngineErrors.Load(), Cleanups: r.Stores.CleanupCount.Load(), QueueBytes: g.QueueBytes(), QueueDepth: g.QueueDepth(), StoreBytes: r.Stores.CachedUsage()}
+	s := observability.Snapshot{Ready: g.Ready() && r.Stores.Healthy(), Forwarded: g.Counters.Forwarded.Load(), Failed: g.Counters.Failed.Load(), Dropped: g.Counters.Dropped.Load(), Recipients: g.Counters.Recipients.Load(), Replays: r.Observer.Replay.Load(), EngineErrors: r.Observer.EngineErrors.Load(), AuthFailures: r.Observer.AuthFailures.Load(), Cleanups: r.Stores.CleanupCount.Load(), QueueBytes: g.QueueBytes(), QueueDepth: g.QueueDepth(), StoreBytes: r.Stores.CachedUsage()}
 	s.StoreWarning = s.StoreBytes >= r.storeWarn
 	s.EngineQueueBytes = r.Pending.Usage()
 	for _, state := range r.Registry.Snapshot() {

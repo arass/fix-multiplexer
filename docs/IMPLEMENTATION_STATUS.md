@@ -36,6 +36,12 @@ A synthetic socket integration test verifies that downstream FIX Logon uses the 
 
 Generic engine-error logging is now globally rate-limited to one record per second. Every error still increments the metric and the next emitted record reports the number suppressed. A deterministic concurrent test, native vet/unit/coverage, Linux race-enabled integration and the container smoke passed. Other log categories remain unthrottled; per-IP authentication rate limiting remains open. The binary inventory was refreshed.
 
+Security review also aligned environment credential limits with file credentials: both reject values over 4,096 bytes. Boundary and rejection tests cover the change.
+
+Failed configured-client passwords are counted and emit a redacted, rate-limited event. The counter does not cover unknown sessions or failed TLS handshakes; per-IP attempt limiting remains open. Native fmt, vet, unit tests and coverage gate, Linux race-enabled integration and container smoke passed. The binary inventory was refreshed.
+
+The local example now shows where to configure each downstream client's password and the TLS fields required for network listeners. The commented credentials preserve the runnable local mock defaults.
+
 The first remote-listener implementation defaults to loopback and requires TLS plus a password for each enabled client when a non-loopback address is configured. Tests cover configuration rejection, encrypted Logon success and failure, and plaintext rejection using local sockets. Native vet, unit tests, coverage gate, Linux race-enabled integration, QuickFIX/J interoperability and the isolated container demo passed. No cross-host connectivity or public internet security test has been performed; rate limiting and network exposure decisions remain open. The binary inventory was refreshed.
 
 Dependency review updated golang.org/x/net from v0.24.0 to v0.43.0, retaining Go 1.23 support. A repeat govulncheck reported no reachable or imported-package vulnerabilities and 17 module-only advisories in uncalled packages. Native fmt, vet, unit tests and coverage gate, Linux race-enabled integration, the isolated container demo and QuickFIX/J interoperability passed; the binary inventory and license notice were refreshed. Newer x/net releases fixing remaining module advisories require a newer Go version. See SECURITY_REVIEW.md.

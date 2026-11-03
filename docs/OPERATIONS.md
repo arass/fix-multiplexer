@@ -2,7 +2,7 @@
 
 The gateway is a nonproduction tool for mutually trusted participants. The management listener requires loopback. A non-loopback downstream FIX listener requires TLS and a password for every enabled client; the example remains loopback-only. All configured clients see upstream application broadcasts. Local engine acceptance is not venue acceptance, and no exactly-once guarantee is made.
 
-For network access use a VPN or firewall restricted to trusted developers, and provision a server certificate clients verify plus a distinct strong FIX Logon password per client. SenderCompID identifies the session; tag 554 is checked against that client's password. A separate tag 553 is not currently checked. No per-IP authentication rate limiting is implemented, and security review is incomplete. Generic engine-error logs are limited to one per second globally; the next emitted error includes `suppressed_errors`, while the metrics counter still counts every event. Other log types are not rate-limited. Set log retention and storage limits in the log collector. Docker port publication and the listener bind address must both be configured for the intended network; keep management private.
+For network access use a VPN or firewall restricted to trusted developers, and provision a server certificate clients verify plus a distinct strong FIX Logon password per client. SenderCompID identifies the session; tag 554 is checked against that client's password. A separate tag 553 is not currently checked. No per-IP authentication rate limiting is implemented, and security review is incomplete. Generic engine-error and failed-password logs share a global limit of one per second; the next emitted error includes the combined `suppressed_errors` count. Their separate metrics count every event. Other log types are not rate-limited. Set log retention and storage limits in the log collector. Docker port publication and the listener bind address must both be configured for the intended network; keep management private.
 
 ## Start and verify
 
@@ -60,6 +60,8 @@ FIX 4.4 only; identical XML dictionaries on both boundaries. Standard and custom
 ## Health, transport bounds and logging
 
 `/live` checks process serving; `/ready` requires the upstream logged on, routing active and required store health. Disconnected downstream clients do not make the entire service unready. `/metrics` reports routing outcomes, queue bytes/depth, engine queue credit, cached store usage, disk warning threshold, replay observations and hashed per-session labels. Disable HTTP with `service.health_bind: ""`. The CLI `-probe` flag performs a bounded local HTTP check.
+
+`fix_mux_auth_failures_total` counts missing or invalid passwords for configured downstream sessions. It does not count unknown sessions or TLS handshake failures. The rate-limited `authentication_failed` event contains a hashed session label and a generic reason, never the password. These observations do not limit login attempts.
 
 Both network boundaries cap unread bytes before engine parsing. That cap also bounds read-ahead bursts; excessive bursts may cause disconnect even when individual messages are smaller than the limit. Downstream transport connections are capped at twice the number of enabled clients, with a minimum of two slots and a five-second initial read deadline. Established read inactivity has a 65-second bound and writes a five-second deadline, alongside FIX heartbeat handling.
 
