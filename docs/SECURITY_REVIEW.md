@@ -2,6 +2,20 @@
 
 Review started 2026-11-02 against local tag `security-review-baseline` (commit 67f1284). This is a working review, not an independent audit or a production approval.
 
+## Findings at a glance
+
+| Finding | Status | Practical impact |
+|---|---|---|
+| Private upstream bridge accepted any local process | Fixed with per-process mutual TLS; local denial of service remains possible | A local process without the ephemeral identity cannot use the gateway's upstream transport, but can attempt to occupy the bounded handshake slot. |
+| Outbound Logon credentials written to session stores | Fixed for newly written Logon records | Older stores and backups may still contain plaintext credentials; do not remove replay state without coordination. |
+| Oversized store metadata read fully before validation | Fixed with bounded reads | Store roots still need to be protected from untrusted filesystem writes. |
+| Repeated generic engine errors could flood logs | Partially mitigated with global error-log rate limiting | Metrics still count every error; authenticated application traffic and other log types remain unthrottled. |
+| Remote FIX authentication has no per-IP attempt limit | Open | Connection caps are not a brute-force or denial-of-service defense. Restrict network access and use strong distinct passwords. |
+| Client certificates are not bound to SenderCompIDs | Open design limitation | Any certificate trusted by the configured CA can claim an allowlisted session unless its separately configured FIX password is also required. |
+| Separate downstream FIX username in tag 553 | Open requirement | SenderCompID and tag 554 password are checked; tag 553 is not. Confirm whether client software requires an independently verified username. |
+
+The review and tests do not establish public-internet or production readiness. No actual exchange credentials, counterparty connections, cross-host penetration tests or third-party audit were used.
+
 The owner clarified that developers need to connect over a network and their FIX Logon credentials may differ from the exchange credentials. Non-loopback downstream FIX listeners now require TLS and a password reference for every enabled client; upstream credentials and per-client downstream passwords are configured independently. `TestDownstreamLogonUsesSeparatePassword` verifies over local FIX sockets that a missing password and the upstream password are rejected, while the configured client password is accepted. `TestNetworkListenerRequiresAuthenticatedTLSLogon` verifies password outcomes over TLS using a loopback test listener and non-loopback configuration; it does not test connectivity across hosts or firewalls. Management remains loopback-only. The intended network and whether a separate FIX username should be verified remain pending owner clarification.
 
 There is currently no per-IP authentication rate limit or lockout. The transport connection cap and deadlines bound concurrent connections, but do not prevent repeated password attempts or deliberate denial of service. Generic engine-error logs are limited to one per second globally, with suppressed counts on the next logged error and every event retained in the metric. Other log categories, including application traffic from authenticated clients, are not rate-limited. Use network restrictions such as a VPN or firewall for a pilot, strong distinct client passwords, monitored access and bounded log retention; do not treat this as public-internet security certification. Additional adversarial tests and security review remain required.
