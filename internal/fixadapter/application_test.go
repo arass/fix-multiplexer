@@ -2,6 +2,7 @@ package fixadapter
 
 import (
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +11,32 @@ import (
 	"fix-multiplexer/internal/sessions"
 	"github.com/quickfixgo/quickfix"
 )
+
+func TestUpstreamRejectNoticeFieldsAndBounds(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		populate func(*quickfix.Message)
+		contains string
+	}{
+		{"minimal", func(m *quickfix.Message) { m.Body.SetInt(45, 42) }, "upstream RefSeqNum=42"},
+		{"long text", func(m *quickfix.Message) { m.Body.SetString(58, strings.Repeat("x", 600)+"secret-after-limit") }, "exchange Text=" + strings.Repeat("x", 512)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := framed("3")
+			tc.populate(m)
+			notice := newUpstreamRejectNotice(m)
+			cloned, err := notice.Clone()
+			if err != nil {
+				t.Fatal(err)
+			}
+			out := cloned.(*Message).out
+			text, _ := out.Body.GetString(58)
+			if notice.Type() != "j" || notice.Size() < len(text) || !strings.Contains(text, tc.contains) || strings.Contains(text, "secret-after-limit") || out.Body.Has(45) {
+				t.Fatal("incorrect or unbounded notification")
+			}
+		})
+	}
+}
 
 func TestApplicationRoutingPossDupAndReplay(t *testing.T) {
 	u := quickfix.SessionID{BeginString: "FIX.4.4", SenderCompID: "UP", TargetCompID: "VENUE"}
@@ -52,6 +79,27 @@ func TestApplicationRoutingPossDupAndReplay(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("fanout missing")
+	}
+	adminReject := framed("3")
+	adminReject.Body.SetInt(45, 123)
+	if a.FromAdmin(adminReject, client) != nil {
+		t.Fatal("downstream reject failed")
+	}
+	select {
+	case <-sent:
+		t.Fatal("downstream session reject was broadcast")
+	default:
+	}
+	if a.FromAdmin(adminReject, u) != nil {
+		t.Fatal("upstream reject failed")
+	}
+	select {
+	case id := <-sent:
+		if id != client.String() {
+			t.Fatal("reject notice sent to wrong session")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("upstream reject notice missing")
 	}
 	a.OnLogout(u)
 	if rej := a.FromApp(m, client); rej == nil || !rej.IsBusinessReject() || rej.BusinessRejectRefID() != "unchanged" {

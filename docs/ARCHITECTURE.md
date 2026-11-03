@@ -13,6 +13,8 @@ If forwarding cannot proceed, send a standard FIX error identified as originatin
 1. **Downstream inbound:** engine validates transport, FIX session state and sequence. Application callback sends a validated business message to a bounded upstream forwarding path. Forwarding happens as a *new* application message on upstream session. Preserve business fields and custom tags, and do not preserve session ownership headers.
 2. **Upstream inbound:** engine validates transport and FIX session state. Application callback clones business fields for each logged-on downstream session. Send each clone through the engine for fresh session headers and sequence numbers.
 3. **Admin:** both ends independently process FIX session management. A downstream `ResendRequest (35=2)` is served from *that downstream session's* store, not relayed upstream. An upstream resend is independent and must not accidentally invoke a second business fanout.
+
+An upstream session Reject (`35=3`) remains an upstream admin message. The gateway emits a new `35=j` diagnostic notice to live downstream clients, including labeled upstream reject details in text and omitting downstream RefSeqNum. This notice bypasses application message type filters; it does not identify order ownership or imply that every recipient's order was rejected. Delivery uses the existing bounded live fanout and downstream session store.
 4. **Business IDs:** no changes to `11`, `41`, `37`, `17`. Neither global uniqueness nor broker-side acceptance is guaranteed. Caller must coordinate or use sufficiently unique IDs if the counterparty checks them.
 
 ### Application fields and header policy

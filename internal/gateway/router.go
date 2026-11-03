@@ -118,6 +118,16 @@ func (g *Router) Broadcast(m Message) error {
 		g.Counters.Dropped.Add(1)
 		return ErrPolicy
 	}
+	return g.broadcast(m)
+}
+
+// BroadcastNotice sends a gateway-generated operational notice regardless of
+// application fanout policy. Callers must never pass an upstream admin message.
+func (g *Router) BroadcastNotice(m Message) error {
+	return g.broadcast(m)
+}
+
+func (g *Router) broadcast(m Message) error {
 	for _, s := range g.registry.Snapshot() {
 		if s.Enabled && s.LoggedOn {
 			if q, ok := g.clients[s.ID]; ok {

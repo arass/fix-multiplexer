@@ -122,6 +122,8 @@ Security review is in progress after the owner-requested local tag `security-rev
 
 The owner also requires developer clients to connect over a network using credentials distinct from the exchange session. Non-loopback FIX listeners require a password for every enabled client; TLS is optional at the owner's request. Each session is identified by SenderCompID. Plaintext exposes passwords and FIX traffic on the network path; use an encrypted VPN. Management remains loopback-only and the default example remains local. Public network scope and whether a separate FIX username is needed are awaiting clarification; access controls, rate limiting and a broader security review remain open.
 
+The owner requires exchange session Rejects to be visible downstream. Generate a separate, clearly labeled gateway diagnostic notice for every live client instead of forwarding upstream session framing or misleading downstream sequence references. Keep notification delivery and limitations documented and tested.
+
 1. Local automated end-to-end test: 3 distinct downstream FIX initiators successfully log on and send orders through **one** upstream FIX initiator. Mock upstream sees correct business tags and one session.
 2. One mock upstream execution report is delivered to all 3 active downstream clients, with correct **independent** target session headers and sequence numbers, unchanged business IDs.
 3. Disconnect one downstream client; other clients continue; disconnected client does not accumulate messages generated while offline. Upon reconnect it can resend previously assigned but missing messages as FIX allows.

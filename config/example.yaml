@@ -25,6 +25,12 @@ upstream:
   # For credentials or TLS, see README.md; do not put credential values here.
   # username: {env: FIX_UPSTREAM_USERNAME}
   # password: {env: FIX_UPSTREAM_PASSWORD}
+  # Application messages allowed from developers to the counterparty:
+  # D New Order Single, F Order Cancel Request, G Order Cancel/Replace Request,
+  # H Order Status Request, V Market Data Request, x Security List Request.
+  # Add other application types required by your counterparty, for example Z
+  # (Quote Cancel) if developers send quote cancellations.
+  app_message_types: ["D", "F", "G", "H", "V", "x"]
 # The gateway accepts one separate session per allowlisted client.
 downstream:
   fix_version: FIX.4.4
@@ -50,7 +56,14 @@ downstream:
   store_dir: ./state/downstream # separate durable history for each client session
 fanout:
   mode: live-only # clients miss broadcasts while disconnected; no offline queue
-  app_message_types: ["8", "9", "j"] # execution report, cancel reject, business reject
+  # Application messages broadcast from the counterparty to connected clients:
+  # 8 Execution Report, 9 Order Cancel Reject, j Business Message Reject,
+  # W Market Data Snapshot, X Market Data Incremental Refresh,
+  # Y Market Data Request Reject, y Security List.
+  # Add other required application types, for example Z (Quote Cancel), if your
+  # counterparty sends them. Types not listed are dropped and counted.
+  # Upstream session Rejects (35=3) generate a gateway notice independently.
+  app_message_types: ["8", "9", "j", "W", "X", "Y", "y"]
 retention:
   downstream_replay_window: 8h # older application replay requests retire the session
   upstream_replay_window: 0s # no upstream age cutoff; disk limits still apply

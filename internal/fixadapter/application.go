@@ -3,6 +3,7 @@ package fixadapter
 import (
 	"crypto/subtle"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -88,7 +89,15 @@ func (a *Application) FromAdmin(m *quickfix.Message, id quickfix.SessionID) quic
 	if m.IsMsgTypeOf("A") && a.Stores != nil && !a.Stores.CanUse(id.String()) {
 		return quickfix.RejectLogon{Text: "gateway: store unavailable or session retired"}
 	}
-	if id == a.Upstream || !m.IsMsgTypeOf("A") {
+	if id == a.Upstream {
+		if m.IsMsgTypeOf("3") && a.Router != nil {
+			notice := newUpstreamRejectNotice(m)
+			_ = a.Router.BroadcastNotice(notice)
+			a.record(m, id, "upstream", "reject_notice_attempted")
+		}
+		return nil
+	}
+	if !m.IsMsgTypeOf("A") {
 		return nil
 	}
 	s, ok := a.Registry.Get(id.String())
@@ -111,6 +120,45 @@ func (a *Application) FromAdmin(m *quickfix.Message, id quickfix.SessionID) quic
 		}
 	}
 	return nil
+}
+
+// The Reject belongs to the upstream session. A new BusinessMessageReject
+// describes that Reject rather than asserting that any particular downstream
+// message was rejected. Tag 45 is deliberately absent from the new message.
+type upstreamRejectNotice struct{ text string }
+
+func newUpstreamRejectNotice(m *quickfix.Message) upstreamRejectNotice {
+	text := "gateway: upstream session Reject (35=3)"
+	for _, field := range []struct {
+		tag  quickfix.Tag
+		name string
+	}{{45, "upstream RefSeqNum"}, {372, "upstream RefMsgType"}, {371, "upstream RefTagID"}, {373, "upstream SessionRejectReason"}, {58, "exchange Text"}} {
+		if value, err := m.Body.GetString(field.tag); err == nil && value != "" {
+			// Limit untrusted counterparty text and remove delimiter/control bytes.
+			var cleaned strings.Builder
+			for _, b := range []byte(value) {
+				if cleaned.Len() >= 512 {
+					break
+				}
+				if b < 32 || b == 127 {
+					b = ' '
+				}
+				cleaned.WriteByte(b)
+			}
+			text += fmt.Sprintf("; %s=%s", field.name, cleaned.String())
+		}
+	}
+	return upstreamRejectNotice{text: text}
+}
+func (n upstreamRejectNotice) Type() string { return "j" }
+func (n upstreamRejectNotice) Size() int    { return len(n.text) + 256 }
+func (n upstreamRejectNotice) Clone() (gateway.Message, error) {
+	m := quickfix.NewMessage()
+	m.Header.SetString(35, "j")
+	m.Body.SetString(372, "3") // The exchange's session Reject is the referenced message.
+	m.Body.SetInt(380, 0)      // Other; no downstream business rejection reason is claimed.
+	m.Body.SetString(58, n.text)
+	return &Message{out: m}, nil
 }
 func (a *Application) FromApp(m *quickfix.Message, id quickfix.SessionID) quickfix.MessageRejectError {
 	if a.Stores != nil && !a.Stores.Healthy() {
