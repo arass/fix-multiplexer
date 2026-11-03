@@ -3,7 +3,7 @@
   "project": "fix-multiplexer",
   "project_license": "undecided",
   "go_version": "go1.27.3",
-  "binary_sha256": "9fd2b9c6e83d242dcf53413a59e31f1a6840be6adbd95f0510e3468eb89c7bf2",
+  "binary_sha256": "37638975d97547886f407535d7bfea363f36abb99bddd3a0b85b30262d017254",
   "platform": {
     "CGO_ENABLED": "0",
     "GOARCH": "amd64",

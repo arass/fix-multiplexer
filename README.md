@@ -105,6 +105,9 @@ The gateway initiates **one** FIX 4.4 session to your counterparty and accepts s
 2. In `upstream`, set `host`, `port`, `sender_comp_id` (the gateway's identity assigned by the counterparty), and `target_comp_id` (the counterparty's identity). Set `tls_enabled: true` if the counterparty requires TLS. Configure credentials and certificates as shown below when required.
 3. In `downstream`, set `target_comp_id` to the gateway identity your clients will use as their TargetCompID. Add a distinct `sender_comp_id` under `clients` for each client's SenderCompID. The list supports up to 128 entries, including disabled clients; connection limits are calculated from enabled clients. Choose separate persistent `upstream.store_dir` and `downstream.store_dir` directories protected from other users; preserve them across restarts.
 4. Check `upstream.app_message_types` and `fanout.app_message_types` against the messages you need. When omitted, upstream defaults to `D`, `F`, `G`, `H`, `V`, `x`; downstream defaults to `8`, `9`, `j`, `W`, `X`, `Y`, `y`. The example lists these defaults with their meanings. Add other application types your counterparty uses, such as `Z` (Quote Cancel) in the appropriate direction. Unsupported downstream submissions receive a gateway-generated FIX error; upstream types outside the fanout policy are dropped and counted.
+
+   Set `upstream.reconnect_interval` to control the delay between exchange connection attempts, for example `60s` or `1m`. The default is 60 seconds (previous versions retried after one second); the minimum is one second. The first attempt is immediate. This controls the gateway's outbound exchange session. Downstream developers initiate their own connections and set their reconnect intervals in their own FIX clients; the gateway's concurrent connection limits do not rate-limit repeated attempts.
+
 5. Validate and start the gateway:
 
    ```sh

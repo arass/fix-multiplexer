@@ -17,6 +17,7 @@ func settingsWithPaths(c config.Config, paths map[quickfix.SessionID]string) (*q
 	d := baseSettings()
 	u.GlobalSettings().Set("SocketConnectHost", c.Upstream.Host)
 	u.GlobalSettings().Set("SocketConnectPort", strconv.Itoa(c.Upstream.Port))
+	u.GlobalSettings().Set("ReconnectInterval", c.Upstream.ReconnectInterval.String())
 	u.GlobalSettings().Set("FileStorePath", c.Upstream.StoreDir)
 	d.GlobalSettings().Set("FileStorePath", c.Downstream.StoreDir)
 	host, port, _ := net.SplitHostPort(c.Downstream.Listen)
@@ -60,7 +61,7 @@ func settingsWithPaths(c config.Config, paths map[quickfix.SessionID]string) (*q
 func baseSettings() *quickfix.Settings {
 	s := quickfix.NewSettings()
 	g := s.GlobalSettings()
-	for k, v := range map[string]string{"BeginString": "FIX.4.4", "HeartBtInt": "30", "ReconnectInterval": "1", "LogonTimeout": "5", "LogoutTimeout": "1", "ResetOnLogon": "N", "ResetOnLogout": "N", "ResetOnDisconnect": "N", "FileStoreSync": "Y", "ValidateUserDefinedFields": "N", "ValidateFieldsOutOfOrder": "Y", "RejectInvalidMessage": "Y", "SocketTimeout": "5s"} {
+	for k, v := range map[string]string{"BeginString": "FIX.4.4", "HeartBtInt": "30", "LogonTimeout": "5", "LogoutTimeout": "1", "ResetOnLogon": "N", "ResetOnLogout": "N", "ResetOnDisconnect": "N", "FileStoreSync": "Y", "ValidateUserDefinedFields": "N", "ValidateFieldsOutOfOrder": "Y", "RejectInvalidMessage": "Y", "SocketTimeout": "5s"} {
 		g.Set(k, v)
 	}
 	// No StartTime/EndTime: engine has no daily session boundary, preserving

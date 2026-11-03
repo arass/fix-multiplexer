@@ -285,6 +285,24 @@ func TestSettingsTLSAndDisabledClients(t *testing.T) {
 	}
 }
 
+func TestUpstreamReconnectSetting(t *testing.T) {
+	c := runtimeConfig(t)
+	for _, duration := range []time.Duration{time.Second, time.Minute, 90 * time.Second} {
+		c.Upstream.ReconnectInterval = duration
+		up, down, err := Settings(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := up.GlobalSettings().DurationSetting("ReconnectInterval")
+		if err != nil || got != duration {
+			t.Fatalf("reconnect interval = %v, %v", got, err)
+		}
+		if down.GlobalSettings().HasSetting("ReconnectInterval") {
+			t.Fatal("acceptor does not reconnect")
+		}
+	}
+}
+
 func TestRuntimeReleasesUnstartedResources(t *testing.T) {
 	c := runtimeConfig(t)
 	r, err := New(c)
@@ -352,6 +370,7 @@ func TestEngineStoresAreActuallyIsolatedAndPruned(t *testing.T) {
 func runtimeConfig(t *testing.T) config.Config {
 	t.Helper()
 	c := config.Defaults()
+	c.Upstream.ReconnectInterval = time.Second // keep local failure/recovery tests fast
 	c.Upstream.Host = "127.0.0.1"
 	c.Upstream.Port = 9880
 	c.Upstream.Sender = "RUNTIME_UP"

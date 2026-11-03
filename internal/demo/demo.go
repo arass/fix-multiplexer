@@ -48,6 +48,7 @@ func Run(ctx context.Context, out io.Writer) error {
 	}
 	defer acceptor.Stop()
 	c := config.Defaults()
+	c.Upstream.ReconnectInterval = time.Second // local demo exercises recovery
 	c.Service.HealthBind = ""
 	c.Upstream.Host = "127.0.0.1"
 	_, port, _ := net.SplitHostPort(venueListener.Addr().String())

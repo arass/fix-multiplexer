@@ -51,18 +51,19 @@ type TLS struct {
 }
 
 type Upstream struct {
-	Version    string   `yaml:"fix_version"`
-	Host       string   `yaml:"host"`
-	Port       int      `yaml:"port"`
-	Sender     string   `yaml:"sender_comp_id"`
-	Target     string   `yaml:"target_comp_id"`
-	StoreDir   string   `yaml:"store_dir"`
-	TLSEnabled bool     `yaml:"tls_enabled"`
-	TLS        TLS      `yaml:"tls"`
-	Username   Secret   `yaml:"username"`
-	Password   Secret   `yaml:"password"`
-	Dictionary string   `yaml:"dictionary"`
-	AppTypes   []string `yaml:"app_message_types"`
+	ReconnectInterval time.Duration `yaml:"reconnect_interval"`
+	Version           string        `yaml:"fix_version"`
+	Host              string        `yaml:"host"`
+	Port              int           `yaml:"port"`
+	Sender            string        `yaml:"sender_comp_id"`
+	Target            string        `yaml:"target_comp_id"`
+	StoreDir          string        `yaml:"store_dir"`
+	TLSEnabled        bool          `yaml:"tls_enabled"`
+	TLS               TLS           `yaml:"tls"`
+	Username          Secret        `yaml:"username"`
+	Password          Secret        `yaml:"password"`
+	Dictionary        string        `yaml:"dictionary"`
+	AppTypes          []string      `yaml:"app_message_types"`
 }
 
 type Client struct {
@@ -108,6 +109,7 @@ func Defaults() Config {
 	var c Config
 	c.Service = Service{Name: "fix-multiplexer", Mode: "nonproduction", Bind: "127.0.0.1", HealthBind: "127.0.0.1:8081", MaxMessageBytes: 1 << 20, UpstreamQueue: 1000, DownstreamQueue: 1000, ShutdownTimeout: 10 * time.Second, StartupTimeout: 15 * time.Second}
 	c.Upstream.Version, c.Downstream.Version = "FIX.4.4", "FIX.4.4"
+	c.Upstream.ReconnectInterval = 60 * time.Second
 	c.Upstream.AppTypes = []string{"D", "F", "G", "H", "V", "x"}
 	c.Downstream.DuplicatePolicy = "reject-new"
 	c.Fanout = Fanout{Mode: "live-only", AppTypes: []string{"8", "9", "j", "W", "X", "Y", "y"}}
@@ -179,6 +181,9 @@ func (c Config) Validate() error {
 	}
 	if c.Upstream.Host == "" || c.Upstream.Port < 1 || c.Upstream.Port > 65535 {
 		return invalid("upstream endpoint")
+	}
+	if c.Upstream.ReconnectInterval < time.Second {
+		return invalid("upstream.reconnect_interval must be at least 1s")
 	}
 	if !identifier.MatchString(c.Upstream.Sender) || !identifier.MatchString(c.Upstream.Target) || c.Upstream.Sender == c.Upstream.Target {
 		return invalid("upstream CompIDs must be distinct safe identifiers")

@@ -24,8 +24,24 @@ func sample(t *testing.T) Config {
 
 func TestSample(t *testing.T) {
 	c := sample(t)
-	if c.Retention.DownstreamWindow != 8*time.Hour || c.Downstream.DuplicatePolicy != "reject-new" || c.Service.ShutdownTimeout != 10*time.Second {
+	if c.Retention.DownstreamWindow != 8*time.Hour || c.Downstream.DuplicatePolicy != "reject-new" || c.Service.ShutdownTimeout != 10*time.Second || c.Upstream.ReconnectInterval != time.Minute {
 		t.Fatal("incorrect defaults")
+	}
+}
+
+func TestUpstreamReconnectInterval(t *testing.T) {
+	for _, tc := range []struct {
+		interval time.Duration
+		valid    bool
+	}{{0, false}, {-time.Second, false}, {time.Millisecond * 999, false}, {time.Second, true}, {time.Minute, true}, {time.Hour, true}} {
+		c := sample(t)
+		c.Upstream.ReconnectInterval = tc.interval
+		if (c.Validate() == nil) != tc.valid {
+			t.Fatalf("unexpected validation for %s", tc.interval)
+		}
+	}
+	if Defaults().Upstream.ReconnectInterval != time.Minute {
+		t.Fatal("unexpected default")
 	}
 }
 

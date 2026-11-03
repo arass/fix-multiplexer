@@ -124,6 +124,8 @@ The owner also requires developer clients to connect over a network using creden
 
 The owner requires exchange session Rejects to be visible downstream. Generate a separate, clearly labeled gateway diagnostic notice for every live client instead of forwarding upstream session framing or misleading downstream sequence references. Keep notification delivery and limitations documented and tested.
 
+The owner requested a configurable upstream reconnect interval, with a 60-second default. Downstream clients initiate their own connections and control their retry intervals; concurrent connection caps do not provide per-IP attempt throttling, which remains an open security-review item.
+
 1. Local automated end-to-end test: 3 distinct downstream FIX initiators successfully log on and send orders through **one** upstream FIX initiator. Mock upstream sees correct business tags and one session.
 2. One mock upstream execution report is delivered to all 3 active downstream clients, with correct **independent** target session headers and sequence numbers, unchanged business IDs.
 3. Disconnect one downstream client; other clients continue; disconnected client does not accumulate messages generated while offline. Upon reconnect it can resend previously assigned but missing messages as FIX allows.
