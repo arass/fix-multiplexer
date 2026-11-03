@@ -67,6 +67,8 @@ The upstream engine connects through a private loopback transport bridge because
 
 The loopback bridge does not authenticate the connecting local process. Other processes in the same network namespace can potentially use or occupy its upstream connection, including the configured client certificate. Run only with mutually trusted local processes in a dedicated host or isolated network namespace until this is addressed. See SECURITY_REVIEW.md.
 
+Downstream mTLS checks that the client certificate chains to the configured CA; it does not bind a certificate identity to one SenderCompID. Configure distinct per-client FIX passwords and use network isolation where individual client identities must be protected. All logged-on clients still receive the same permitted broadcast messages.
+
 Application sends admitted to the engine's internal queues are capped at 2MiB per session and 64MiB globally, in addition to routing queues and the routing 64MiB budget. Queue credit releases when the engine hands bytes to its writer, not when a peer accepts an order. Resends use the engine's synchronous writer path and are not refused for queue credit (that would risk gap-filling away business history). After a failed/disconnected send, conservative outstanding credit can remain until emission or daemon restart. Treat a full queue as a visible forwarding error, never as acceptance.
 
 Default logs emit JSON timestamps, hashed session identity, direction, MsgType, sequence and outcome. They omit all body values, credential/custom sensitive tags, raw frames and untrusted engine error interpolation. Store payloads remain sensitive even though logs are metadata only. The built-in lint gate is go vet with the pinned CI Go version, plus gofmt; no external linter is claimed.

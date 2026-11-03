@@ -12,6 +12,10 @@ The upstream transport bridge listens on an ephemeral loopback TCP port and acce
 
 Downstream authentication is optional; without a configured password or mTLS, the allowlisted CompID is an identifier rather than a secret. All connected clients receive broadcasts. Deploy only among mutually trusted clients and local processes, and explicitly configure appropriate authentication. FIX file stores contain message payloads and must be protected by filesystem permissions and host/container access controls. Existing directories retain their existing permissions; verify them during deployment.
 
+### Client certificates are not bound to individual FIX identities
+
+Code inspection shows that downstream mTLS verifies that a certificate is trusted by the configured CA, but does not map its subject or fingerprint to a specific SenderCompID. A holder of another certificate trusted by the same CA can claim an allowlisted CompID; a per-client FIX password, if configured, is checked separately. Duplicate-connection rejection can also let an early connection occupy a session. This is a trust-boundary limitation, not evidence that a particular deployment has been compromised. For mutually untrusted clients, use distinct strong per-client credentials and additional network isolation; assess certificate-to-CompID binding before promising per-client certificate identity. Integration tests for cross-identity attempts are still needed.
+
 ### Upstream credentials persist in the FIX store
 
 **Confirmed:** QuickFIX/Go persists outgoing Logon messages before sending them. If an upstream username or password is configured, the corresponding Logon fields are written to the upstream session's durable body file in plaintext. The event and application logs suppress message content, but that does not remove credentials from session stores, snapshots or backups. `TestUpstreamLogonCredentialIsPersisted` verifies this with a synthetic local credential and no raw payload output.
@@ -27,5 +31,6 @@ On 2026-11-02, `govulncheck v1.1.4 ./...` using Go 1.27.3 reported zero reachabl
 - Investigate and remediate the upstream bridge trust boundary; validate with local adversarial socket tests, TLS/mTLS and reconnect integration tests.
 - Design and validate a safe mitigation for confirmed upstream logon credential persistence, including existing-store handling.
 - Review authentication, authorization, TLS, health endpoints, filesystem race/symlink handling, resource-exhaustion paths, logging and error redaction.
+- Test cross-identity mTLS attempts and assess per-client certificate identity binding and duplicate-session exhaustion.
 - Assess dependency upgrades and scan container/Java dependencies where tooling is available.
 - Record verified findings, fixes, tests and residual limitations; update task documents and commit each completed step locally.
