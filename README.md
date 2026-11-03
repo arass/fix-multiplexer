@@ -148,6 +148,8 @@ For downstream TLS, set `downstream.tls_enabled: true` and provide `downstream.t
 
 ### Allow developers to connect over a network
 
+For a shared Docker server that developers connect to from their own machines, see the [Docker setup guide](docs/DOCKER_SETUP.md) for image handoff, configuration, port mapping, and firewall requirements.
+
 To opt in, set `downstream.listen` to a literal IP address reachable by your developers, such as an address on your private network. A wildcard such as `0.0.0.0:9879` listens on all IPv4 interfaces. For any non-loopback listener, startup requires a password reference for **every enabled client**. Each client identifies its FIX session with its unique SenderCompID and sends its own password in Logon tag 554. These passwords are independent of the upstream counterparty username and password. An optional separate developer username in tag 553 is not currently validated.
 
 TLS is optional. Without it, FIX passwords and messages travel unencrypted and can be observed or altered by anyone with access to the network path; use an encrypted VPN and restrict network access. To enable TLS, add the certificate and key shown below and configure clients to verify the certificate.
