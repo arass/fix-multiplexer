@@ -13,7 +13,7 @@ The per-client subscriber task and its acceptance checks are tracked in `docs/CO
 - Keep task documents and the implementation checkpoint current. Commit locally after each completed, verified step; record incomplete checks and resume instructions honestly. No push is requested.
 - Use three downstream clients in the demo and acceptance tests.
 
-See docs/IMPLEMENTATION_STATUS.md for completed work, pending tasks, and environment blockers. These decisions supersede conflicting earlier suggestions in the starter specification.
+See docs/IMPLEMENTATION_STATUS.md for completed work, pending tasks, and environment blockers. The phase progress entries below are historical milestone snapshots, not the current outstanding-work list. These decisions supersede conflicting earlier suggestions in the starter specification.
 
 Implement a ready-to-run, open-source, **generic standalone FIX session multiplexer** for nonproduction use. Multiple downstream FIX initiators connect to our FIX acceptor; one upstream FIX initiator connects to a venue's FIX acceptor. Forward downstream application messages upstream and broadcast upstream application messages to currently connected, logged-on downstream FIX sessions. No order ownership database, no `ClOrdID` translation, no WebSocket API, and no dependency on any private counterparty code.
 

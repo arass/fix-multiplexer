@@ -1,6 +1,6 @@
 # Local development operations
 
-The gateway is a nonproduction tool for mutually trusted participants. The management listener requires loopback. A non-loopback downstream FIX listener requires a password for every enabled client; TLS is optional and the example remains loopback-only. Without TLS, FIX passwords and messages are exposed to the network path; use an encrypted VPN and restrict access. All configured clients see upstream application broadcasts. Local engine acceptance is not venue acceptance, and no exactly-once guarantee is made.
+The gateway is a nonproduction tool for mutually trusted participants. The management listener requires loopback. A non-loopback downstream FIX listener requires a password for every enabled client; TLS is optional and the example remains loopback-only. Without TLS, FIX passwords and messages are exposed to the network path; use an encrypted VPN and restrict access. By default, logged-on clients see globally allowed upstream broadcasts; optional per-client filters narrow delivery by message type, not order ownership. Local engine acceptance is not venue acceptance, and no exactly-once guarantee is made.
 
 For network access use an encrypted VPN restricted to trusted developers and a distinct strong FIX Logon password per client. If TLS is enabled, provision a server certificate clients verify. SenderCompID identifies the session; tag 554 is checked against that client's password. A separate tag 553 is not currently checked. No per-IP authentication rate limiting is implemented, and security review is incomplete. Generic engine-error and failed-password logs share a global limit of one per second; the next emitted error includes the combined `suppressed_errors` count. Their separate metrics count every event. Other log types are not rate-limited. Set log retention and storage limits in the log collector. Docker port publication and the listener bind address must both be configured for the intended network; keep management private.
 
@@ -12,7 +12,7 @@ go run ./cmd/fix-multiplexer -demo
 go run ./cmd/fix-multiplexer -config config/example.yaml
 ```
 
-The demo uses synthetic data and temporary stores. The daemon uses configured durable stores. Current default MsgTypes toward upstream: D, F, G, H, V, x; downstream defaults include 8, 9, j, W, X, Y, y. The example narrows downstream to 8, 9, j. Deny rules override allow rules; administrative types cannot enter either application path. Unsupported downstream submissions receive a gateway BusinessMessageReject. Upstream types outside fanout policy are counted as drops.
+The demo uses synthetic data and temporary stores. The daemon uses configured durable stores. Default MsgTypes toward upstream: D, F, G, H, V, x; downstream defaults are 8, 9, j, W, X, Y, y, as listed in the example. `fanout.deny_message_types` overrides both the downstream-to-upstream and upstream-to-downstream allowlists; administrative types cannot enter either application path. Unsupported or read-only downstream submissions receive a gateway BusinessMessageReject. Upstream types outside fanout policy are counted as drops. See the [subscriber example](../config/drop-copy.example.yaml) for client-specific settings.
 
 ## Recovery and eight-hour history
 
@@ -73,7 +73,7 @@ The upstream engine connects through a private loopback transport bridge because
 
 An unauthenticated local peer can still consume the bounded bridge handshake slot temporarily. Run the gateway with trusted local processes and protect its process memory and stores. See SECURITY_REVIEW.md.
 
-Downstream mTLS checks that the client certificate chains to the configured CA; it does not bind a certificate identity to one SenderCompID. Configure distinct per-client FIX passwords and use network isolation where individual client identities must be protected. All logged-on clients still receive the same permitted broadcast messages.
+Downstream mTLS checks that the client certificate chains to the configured CA; it does not bind a certificate identity to one SenderCompID. Configure distinct per-client FIX passwords and use network isolation where individual client identities must be protected. A receive filter restricts message types, not visibility of other clients' orders within an allowed type.
 
 Application sends admitted to the engine's internal queues are capped at 2MiB per session and 64MiB globally, in addition to routing queues and the routing 64MiB budget. Queue credit releases when the engine hands bytes to its writer, not when a peer accepts an order. Resends use the engine's synchronous writer path and are not refused for queue credit (that would risk gap-filling away business history). After a failed/disconnected send, conservative outstanding credit can remain until emission or daemon restart. Treat a full queue as a visible forwarding error, never as acceptance.
 

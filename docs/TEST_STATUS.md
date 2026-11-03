@@ -28,11 +28,13 @@ This checkpoint records executed coverage, not a claim that every variant of eve
 | I09 | Real upstream disconnect, not-ready and gateway-identified standard FIX BusinessMessageReject. |
 | I10 | Unknown CompID, verified upstream hostname, downstream mTLS success/failure, and configured-client password success/failure over both plaintext and TLS sockets. Additional combined authentication variants remain useful. |
 | I11 | Upstream session Reject generates a new diagnostic `j` for two live FIX clients, bypassing an ordinary `j` deny policy and omitting downstream RefSeqNum. |
-| I11 | Real oversize transport disconnect; connection count, byte limits, slow consumer and queue saturation tested with controlled transports/fakes. Sustained socket backpressure stress remains open. |
+| I11a | Real oversize transport disconnect; connection count, byte limits, slow consumer and queue saturation tested with controlled transports/fakes. Sustained socket backpressure stress remains open. |
 | I12 | Defaults disable daily/logon/logout/disconnect resets; explicit offline reset and retirement enforced. Custom daily schedules are not exposed in v1. |
 | I13 | Go wire parser and all three peers verify groups/custom tags; independent QuickFIX/J 2.3.2 peers also passed groups/custom scalar and independent session identities. |
 | I14–I15 | Container liveness, not-ready without upstream, metadata metrics and SIGTERM exit 0; race/cleanup tests and no raw credential logging. |
 | I16 | Budget/write/metadata/corruption, partial fanout and hard crash injected; physical disk exhaustion during a real socket flood remains open. |
+
+Per-client subscriber integration tests also cover a real `AE` trade report with a repeating group, read-only and receive-filter policies after reconnect and gateway restart, live-only exclusion, and resend of an already delivered report. The broader subscriber matrix still has explicit real-session `F`, unlisted-type and admin TestRequest cases outstanding; see [subscriber task](CODEX_PER_CLIENT_DROP_COPY.md).
 
 ## Fuzz, soak and interoperability
 

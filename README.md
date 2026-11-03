@@ -63,7 +63,7 @@ The downstream replay-history window defaults to a configurable **8 hours**, sep
 
 To prevent abandoned development sessions from consuming disk indefinitely, the design requires configurable retention and safe cleanup of inactive session stores. Expired state may require an explicitly coordinated FIX sequence reset on the next connection.
 
-Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the proposed failure semantics and [docs/TEST_PLAN.md](docs/TEST_PLAN.md) for recovery and cleanup testing.
+Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for failure semantics and [docs/TEST_PLAN.md](docs/TEST_PLAN.md) for recovery and cleanup testing.
 
 ## Nonproduction use only
 
@@ -80,7 +80,7 @@ downstream:
       receive_message_types: ["8", "9"]
 ```
 
-`read_only` defaults to false. A read-only client's application submissions are rejected with a gateway-generated BusinessMessageReject; its FIX session and administrative messages continue normally. Writable clients still obey `upstream.app_message_types`; set that list to `[]` to block all clients from submitting application messages. Omit `receive_message_types` to inherit the global fanout list, or use `[]` to receive no upstream application messages. Explicit types must be in the global fanout allowlist, and `fanout.deny_message_types` always takes precedence. Gateway-generated submission errors and shared upstream session Reject notices are delivered independently of receive filters.
+`read_only` defaults to false. A read-only client's application submissions are rejected with a gateway-generated BusinessMessageReject; its FIX session and administrative messages continue normally. Writable clients still obey `upstream.app_message_types`; set that list to `[]` to block all clients from submitting application messages. Omit `receive_message_types` to inherit the global fanout list, or use `[]` to receive no upstream application messages. Explicit types must be in the global fanout allowlist. `fanout.deny_message_types` takes precedence over the allowlists in both directions. Gateway-generated submission errors and shared upstream session Reject notices are delivered independently of receive filters.
 
 Subscribers see matching messages for all clients sharing the upstream session. This is best-effort Drop Copy-style fan-out, not a consolidated venue feed or authoritative audit trail: the upstream must send the messages, and disconnected clients miss new broadcasts. FIX resend only recovers messages already assigned to that client's session and retained in its store. This remains a nonproduction tool. See `config/drop-copy.example.yaml` for a complete local configuration.
 
@@ -194,7 +194,7 @@ downstream:
 
 This is a TLS-enabled replacement for the `downstream` section of the copied config. Provide the referenced secrets and certificate files to the gateway; each client must verify the gateway certificate and use the matching SenderCompID, TargetCompID and password. For plaintext FIX over an encrypted VPN, omit `tls_enabled` and the `tls` section. If running in Docker, mount the configuration, any certificates, secret references and durable state appropriately and publish only the intended FIX port. Docker networking, host firewalls and TLS certificate names must match the actual deployment; the management listener remains loopback-only.
 
-Use a VPN or firewall to restrict access to trusted developers. The gateway does not yet provide per-IP login rate limiting, and its security review is incomplete; a TLS-enabled listener is not a public-internet security certification. All logged-on downstream clients receive allowed upstream broadcasts, including messages concerning other clients. The local upstream bridge authenticates its engine connection but remains subject to local denial-of-service attempts. See the [security review](docs/SECURITY_REVIEW.md).
+Use a VPN or firewall to restrict access to trusted developers. The gateway does not yet provide per-IP login rate limiting, and its security review is incomplete; a TLS-enabled listener is not a public-internet security certification. By default, logged-on downstream clients receive allowed upstream broadcasts, including messages concerning other clients; per-client type filters can narrow what they receive. The local upstream bridge authenticates its engine connection but remains subject to local denial-of-service attempts. See the [security review](docs/SECURITY_REVIEW.md).
 
 ### FIX recovery and troubleshooting
 

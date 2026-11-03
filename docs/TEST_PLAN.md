@@ -46,7 +46,7 @@ The goal is comprehensive coverage of **our code and guarantees**, not testing Q
 | I09 | Upstream outage | Drop upstream socket; readiness fails; downstream app sends order and receives explicit documented failure/outcome; reconnect restores service. |
 | I10 | Bad logon | Unknown SenderCompID, wrong target, wrong password where configured, unauthorized address/TLS cert fail; no session created. |
 | I11 | Upstream session Reject | A new gateway diagnostic notice reaches each logged-on downstream session even if ordinary `j` fanout is disabled; upstream sequence references never appear as downstream RefSeqNum. |
-| I11 | Limits | Large frame, too many sessions, saturated queue/slow consumer trigger documented safe behavior; healthy other sessions continue. |
+| I11a | Limits | Large frame, too many sessions, saturated queue/slow consumer trigger documented safe behavior; healthy other sessions continue. |
 | I12 | Clock and schedules | FIX session daily rollover / reset flag combinations follow documented policies; stale pruned session cannot silently reattach with conflicting seq numbers. |
 | I13 | Data fidelity | Grouped message and custom extension tag survive forwarding and all recipients; verify with independent FIX peer parser. |
 | I14 | Operational | Graceful SIGTERM, restart, readiness/metrics/health behavior; no leaked sockets/threads/goroutines. |
@@ -75,9 +75,9 @@ Additional confirmed regressions: a valid inbound PossDup application message is
 ## Coverage and gates
 
 - Fast tests: `go test ./... -short` (do not require Docker or network beyond loopback in explicitly marked tests).
-- Full unit + integration: `go test ./...` with suitable package-level markers or dedicated target.
-- Race: `go test -race ./...`.
-- Coverage: `go test -coverprofile=coverage.out ./...`; report per-package project-owned coverage, target **>=90%** for core routing/config/session/retention code. Coverage percentage alone does not replace the matrix above.
+- Full unit + integration: `go test -tags=integration ./...`.
+- Race, including integration: `go test -race -tags=integration ./...`.
+- Fast coverage: `go test -short -coverprofile=coverage.out ./...`, then `go run ./scripts/check-coverage.go coverage.out`; the gate requires **>=90%** for config, gateway, FIX adapter, sessions and retention. Tagged socket integration and soak tests are not included in this fast coverage measurement. Coverage percentage alone does not replace the matrix above.
 - Static checks: `go vet ./...`, formatter and lint (choose a documented reproducible linter configuration).
 - Container smoke: build container, launch mock venue + gateway + 3 clients, run I01-I05 and readiness checks without credentials.
 - Unit tests must not reach real brokers, rely on private SDKs or require AWS/Redis/MySQL.
