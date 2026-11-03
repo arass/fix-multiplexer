@@ -1,12 +1,14 @@
 # Test plan
 
+Per-client subscriber coverage must include read-only enforcement before upstream routing, writable clients, omitted versus empty lists, global deny precedence, generated notice exceptions, and real FIX session recovery and filtering without sequence consumption. Detailed acceptance cases are in `docs/CODEX_PER_CLIENT_DROP_COPY.md`.
+
 The goal is comprehensive coverage of **our code and guarantees**, not testing QuickFIX/Go's entire protocol implementation. Separate fast deterministic unit tests from real FIX socket integration tests and optional long-running soak tests.
 
 ## Unit tests: table-driven, fake engine, fake clock and store
 
 | ID | Area | Tests and expected result |
 |---|---|---|
-| U01 | Config | Valid sample parses; defaults correct; malformed YAML, missing endpoint, duplicate session IDs, same source/dest IDs, invalid port, empty allowlist, negative TTL, invalid size fail with specific errors. |
+| U01 | Config | Valid sample parses; defaults correct; malformed YAML, missing endpoint, duplicate session IDs, same source/dest IDs, invalid port, empty fanout allowlist, negative TTL, invalid size fail with specific errors. An explicit empty upstream allowlist blocks all submissions. |
 | U02 | Config | Unsupported FIX version combination fails early; unknown settings rejected; secrets are never echoed in errors. |
 | U03 | Identity | Allowed client succeeds; unknown/disabled client denied; duplicate connection policy enforced; SessionID cannot be spoofed via business field. |
 | U04 | Routing upstream | Each allowed downstream application type forwarded once to correct upstream; body fields unchanged and original message unmodified. |

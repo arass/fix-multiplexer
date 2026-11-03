@@ -33,7 +33,7 @@ func TestUpstreamRejectNotifiesAllLiveClients(t *testing.T) {
 	_, port, _ := net.SplitHostPort(venueListener.Addr().String())
 	c.Upstream.Port, _ = strconv.Atoi(port)
 	c.Downstream.Listen = muxListener.Addr().String()
-	c.Downstream.Clients = append(c.Downstream.Clients, config.Client{Sender: "CLIENT2"})
+	c.Downstream.Clients = append(c.Downstream.Clients, config.Client{Sender: "CLIENT2", ReadOnly: true, ReceiveMessageTypes: []string{}})
 	// Gateway notices must survive even a policy excluding business rejects.
 	c.Fanout.AppTypes = []string{"8"}
 	c.Fanout.DenyTypes = []string{"j"}

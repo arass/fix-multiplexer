@@ -67,9 +67,28 @@ type Upstream struct {
 }
 
 type Client struct {
-	Sender   string `yaml:"sender_comp_id"`
-	Disabled bool   `yaml:"disabled"`
-	Password Secret `yaml:"password"`
+	Sender              string   `yaml:"sender_comp_id"`
+	Disabled            bool     `yaml:"disabled"`
+	Password            Secret   `yaml:"password"`
+	ReadOnly            bool     `yaml:"read_only"`
+	ReceiveMessageTypes []string `yaml:"receive_message_types"`
+}
+
+// MarshalYAML preserves the distinction between an inherited receive policy
+// (nil) and an explicit empty list when configurations are serialized.
+func (c Client) MarshalYAML() (any, error) {
+	type clientYAML struct {
+		Sender              string    `yaml:"sender_comp_id"`
+		Disabled            bool      `yaml:"disabled"`
+		Password            Secret    `yaml:"password"`
+		ReadOnly            bool      `yaml:"read_only"`
+		ReceiveMessageTypes *[]string `yaml:"receive_message_types,omitempty"`
+	}
+	v := clientYAML{Sender: c.Sender, Disabled: c.Disabled, Password: c.Password, ReadOnly: c.ReadOnly}
+	if c.ReceiveMessageTypes != nil {
+		v.ReceiveMessageTypes = &c.ReceiveMessageTypes
+	}
+	return v, nil
 }
 
 type Downstream struct {
@@ -207,6 +226,23 @@ func (c Config) Validate() error {
 			return invalid("downstream clients must have distinct safe CompIDs")
 		}
 		seen[cl.Sender] = true
+		seenTypes := make(map[string]bool)
+		for _, typ := range cl.ReceiveMessageTypes {
+			if !msgType.MatchString(typ) || IsAdmin(typ) || seenTypes[typ] {
+				return invalid("client receive_message_types contains invalid, administrative or duplicate types")
+			}
+			seenTypes[typ] = true
+			found := false
+			for _, allowed := range c.Fanout.AppTypes {
+				if typ == allowed {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return invalid("client receive_message_types must be a subset of fanout.app_message_types")
+			}
+		}
 		if err := validSecret(cl.Password); err != nil {
 			return invalid("downstream client password reference")
 		}
@@ -235,8 +271,8 @@ func (c Config) Validate() error {
 			seenTypes[t] = true
 		}
 	}
-	if len(c.Upstream.AppTypes) == 0 || len(c.Fanout.AppTypes) == 0 {
-		return invalid("application allowlists must be nonempty")
+	if len(c.Fanout.AppTypes) == 0 {
+		return invalid("fanout application allowlist must be nonempty")
 	}
 	if c.Retention.DownstreamWindow <= 0 || c.Retention.UpstreamWindow < 0 || c.Retention.IdleTTL <= 0 || c.Retention.PruneActive {
 		return invalid("retention requires positive windows and forbids active pruning")

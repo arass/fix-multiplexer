@@ -189,6 +189,8 @@ func (a *Application) FromApp(m *quickfix.Message, id quickfix.SessionID) quickf
 		reason := 4
 		if errors.Is(err, gateway.ErrPolicy) {
 			reason = 3
+		} else if errors.Is(err, gateway.ErrReadOnly) {
+			reason = 0
 		}
 		return reject(m, err.Error(), reason)
 	}

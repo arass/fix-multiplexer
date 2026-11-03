@@ -103,6 +103,88 @@ func TestForwardPolicyAndFailure(t *testing.T) {
 	}
 }
 
+func TestPerClientPolicies(t *testing.T) {
+	sent := make(chan delivery, 20)
+	r := sessions.New(map[string]bool{"up": true, "a": true, "b": true, "c": true}, time.Now)
+	for _, id := range []string{"up", "a", "b", "c"} {
+		if err := r.SetLoggedOn(id, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	g := New(Options{Upstream: "up", Clients: []string{"a", "b", "c"}, ClientPolicies: map[string]ClientPolicy{"a": {ReceiveTypes: []string{"9"}}, "b": {ReadOnly: true, ReceiveTypes: []string{"8"}}, "c": {ReadOnly: true, ReceiveTypes: []string{}}}, UpstreamTypes: []string{"D", "F", "G", "H", "V", "x"}, DownstreamTypes: []string{"8", "9"}, UpstreamQueue: 4, DownstreamQueue: 4, ByteBudget: 1024}, r, SendFunc(func(m Message, id string) error { sent <- delivery{id, m}; return nil }))
+	t.Cleanup(g.Close)
+	for _, typ := range []string{"D", "F", "G", "H", "V", "x"} {
+		if err := g.Submit("b", &testMessage{typ: typ}); !errors.Is(err, ErrReadOnly) {
+			t.Fatalf("%s: %v", typ, err)
+		}
+	}
+	if g.Counters.Blocked.Load() != 6 || g.QueueDepth() != 0 {
+		t.Fatal("blocked submissions were queued or not counted")
+	}
+	if err := g.Submit("a", &testMessage{typ: "D"}); err != nil {
+		t.Fatal(err)
+	}
+	if d := receive(t, sent); d.id != "up" {
+		t.Fatal(d.id)
+	}
+	if err := g.Broadcast(&testMessage{typ: "8"}); err != nil {
+		t.Fatal(err)
+	}
+	if d := receive(t, sent); d.id != "b" {
+		t.Fatal(d.id)
+	}
+	if err := g.Broadcast(&testMessage{typ: "9"}); err != nil {
+		t.Fatal(err)
+	}
+	if d := receive(t, sent); d.id != "a" {
+		t.Fatal(d.id)
+	}
+	if err := g.BroadcastNotice(&testMessage{typ: "j"}); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for i := 0; i < 3; i++ {
+		got[receive(t, sent).id] = true
+	}
+	if len(got) != 3 {
+		t.Fatal(got)
+	}
+}
+
+func TestSubscriberInheritanceAndGlobalDeny(t *testing.T) {
+	sent := make(chan delivery, 4)
+	r := sessions.New(map[string]bool{"up": true, "a": true, "b": true}, time.Now)
+	for _, id := range []string{"up", "a", "b"} {
+		if err := r.SetLoggedOn(id, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	g := New(Options{Upstream: "up", Clients: []string{"a", "b"}, ClientPolicies: map[string]ClientPolicy{"b": {ReadOnly: true}}, UpstreamTypes: []string{}, DownstreamTypes: []string{"8", "9"}, DenyTypes: []string{"9"}, UpstreamQueue: 2, DownstreamQueue: 2, ByteBudget: 1024}, r, SendFunc(func(m Message, id string) error { sent <- delivery{id, m}; return nil }))
+	t.Cleanup(g.Close)
+	if err := g.Submit("a", &testMessage{typ: "D"}); !errors.Is(err, ErrPolicy) {
+		t.Fatal(err)
+	}
+	if err := g.Submit("b", &testMessage{typ: "D"}); !errors.Is(err, ErrReadOnly) {
+		t.Fatal(err)
+	}
+	if err := g.Submit("up", &testMessage{typ: "D"}); !errors.Is(err, sessions.ErrUnavailable) {
+		t.Fatal(err)
+	}
+	if err := g.Broadcast(&testMessage{typ: "9"}); !errors.Is(err, ErrPolicy) {
+		t.Fatal(err)
+	}
+	if err := g.Broadcast(&testMessage{typ: "8"}); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for i := 0; i < 2; i++ {
+		got[receive(t, sent).id] = true
+	}
+	if !got["a"] || !got["b"] {
+		t.Fatal(got)
+	}
+}
+
 func TestFanoutIndependentAndOffline(t *testing.T) {
 	sent := make(chan delivery, 10)
 	g, _ := setup(t, func(m Message, id string) error {

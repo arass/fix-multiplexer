@@ -72,6 +72,8 @@ Keep the original `config/example.yaml` a working UAT example; do not make all c
 
 The global `fanout.deny_message_types` remains authoritative even when a client subscribes to a type. Receive filters govern upstream application messages, not gateway-generated operational messages: preserve the existing shared upstream session Reject notices and deliver gateway-generated policy errors to the submitting client, even for an empty receive list. Shared notices may contain counterparty text visible to all connected clients.
 
+Policy changes do not erase messages previously accepted into the upstream FIX session's resend history. Only new submissions denied by the current policy are prevented from entering the upstream queue and store.
+
 ### FIX session control and reliability
 
 13. FIX administrative messages (Logon, Logout, Heartbeat, TestRequest, ResendRequest, SequenceReset, etc.) must continue to be handled independently by each FIX engine/session in **both directions** for **all** clients, including read-only ones. Never blindly broadcast or forward raw FIX administrative messages.
@@ -87,6 +89,8 @@ A read-only client is a **subscriber to the messages available on the gateway's 
 Use terminology **"best-effort Drop Copy-style fan-out"** or **"read-only FIX subscriber"** unless the upstream really is a Drop Copy feed. Document that this is not production-certified, not an authoritative audit trail, and does not guarantee complete delivery or offline recovery.
 
 ## Tests required
+
+Checkpoint: basic configuration, router and three-session FIX coverage has been added. The full acceptance matrix below, including detailed recovery/restart and message-type coverage, still requires dedicated per-client tests and review; existing generic recovery tests alone do not complete this task.
 
 Write focused unit tests of all added branches plus real FIX-session integration tests. At minimum:
 

@@ -13,6 +13,7 @@ var (
 	ErrStopped     = errors.New("gateway: routing stopped")
 	ErrUnavailable = errors.New("gateway: upstream unavailable")
 	ErrPolicy      = errors.New("gateway: unsupported application message type")
+	ErrReadOnly    = errors.New("gateway: client is read-only")
 	ErrFull        = errors.New("gateway: routing queue or byte budget exhausted")
 	ErrSend        = errors.New("gateway: forwarding failed; delivery may be uncertain")
 )
@@ -34,9 +35,16 @@ type Options struct {
 	UpstreamTypes, DownstreamTypes, DenyTypes []string
 	UpstreamQueue, DownstreamQueue            int
 	ByteBudget                                int64
+	ClientPolicies                            map[string]ClientPolicy
 }
 
-type Counters struct{ Forwarded, Failed, Dropped, Recipients atomic.Uint64 }
+// A nil receive list inherits the global policy; an empty list receives none.
+type ClientPolicy struct {
+	ReadOnly     bool
+	ReceiveTypes []string
+}
+
+type Counters struct{ Forwarded, Failed, Dropped, Recipients, Blocked atomic.Uint64 }
 type job struct {
 	source, target string
 	generation     uint64
@@ -96,7 +104,15 @@ func (g *Router) Submit(source string, m Message) error {
 	if !ok || !s.Enabled || !s.LoggedOn {
 		return fail(sessions.ErrUnavailable)
 	}
+	if _, ok := g.clients[source]; !ok {
+		return fail(sessions.ErrUnavailable)
+	}
+	if g.options.ClientPolicies[source].ReadOnly {
+		g.Counters.Blocked.Add(1)
+		return fail(ErrReadOnly)
+	}
 	if !allowed(m.Type(), g.options.UpstreamTypes, g.options.DenyTypes) {
+		g.Counters.Blocked.Add(1)
 		return fail(ErrPolicy)
 	}
 	u, ok := g.registry.Get(g.options.Upstream)
@@ -118,19 +134,23 @@ func (g *Router) Broadcast(m Message) error {
 		g.Counters.Dropped.Add(1)
 		return ErrPolicy
 	}
-	return g.broadcast(m)
+	return g.broadcast(m, true)
 }
 
 // BroadcastNotice sends a gateway-generated operational notice regardless of
 // application fanout policy. Callers must never pass an upstream admin message.
 func (g *Router) BroadcastNotice(m Message) error {
-	return g.broadcast(m)
+	return g.broadcast(m, false)
 }
 
-func (g *Router) broadcast(m Message) error {
+func (g *Router) broadcast(m Message, filtered bool) error {
 	for _, s := range g.registry.Snapshot() {
 		if s.Enabled && s.LoggedOn {
 			if q, ok := g.clients[s.ID]; ok {
+				policy := g.options.ClientPolicies[s.ID]
+				if filtered && policy.ReceiveTypes != nil && !allowed(m.Type(), policy.ReceiveTypes, nil) {
+					continue
+				}
 				if err := g.enqueue(q, job{target: s.ID, generation: s.Generation, msg: m}); err != nil {
 					g.Counters.Failed.Add(1)
 					g.Counters.Dropped.Add(1)

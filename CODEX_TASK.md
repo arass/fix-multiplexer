@@ -2,6 +2,8 @@
 
 ## Mission
 
+The per-client subscriber task and its acceptance checks are tracked in `docs/CODEX_PER_CLIENT_DROP_COPY.md`; see `docs/IMPLEMENTATION_STATUS.md` for current progress.
+
 ## Confirmed implementation decisions (2026-11-02)
 
 - Use Go and QuickFIX/Go, subject to verifying engine behavior and licensing.

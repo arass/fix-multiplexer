@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 func sample(t *testing.T) Config {
@@ -26,6 +28,93 @@ func TestSample(t *testing.T) {
 	c := sample(t)
 	if c.Retention.DownstreamWindow != 8*time.Hour || c.Downstream.DuplicatePolicy != "reject-new" || c.Service.ShutdownTimeout != 10*time.Second || c.Upstream.ReconnectInterval != time.Minute {
 		t.Fatal("incorrect defaults")
+	}
+}
+
+func TestDropCopyExample(t *testing.T) {
+	f, err := os.Open("../../config/drop-copy.example.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	c, err := Load(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Downstream.Clients[0].ReadOnly || !c.Downstream.Clients[1].ReadOnly || !c.Downstream.Clients[2].ReadOnly {
+		t.Fatal("example does not contain mixed clients")
+	}
+}
+
+func TestClientReceivePolicyYAMLRoundTrip(t *testing.T) {
+	for _, types := range [][]string{nil, {}, {"8"}} {
+		c := sample(t)
+		c.Downstream.Clients[0].ReceiveMessageTypes = types
+		data, err := yaml.Marshal(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		d, err := Load(strings.NewReader(string(data)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := d.Downstream.Clients[0].ReceiveMessageTypes
+		if (got == nil) != (types == nil) || len(got) != len(types) {
+			t.Fatalf("round trip %v: %v", types, got)
+		}
+	}
+}
+
+func TestClientPolicies(t *testing.T) {
+	data, err := os.ReadFile("../../config/example.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := string(data)
+	for _, tc := range []struct {
+		name, yaml string
+		valid      bool
+		nilList    bool
+		readOnly   bool
+	}{
+		{"omitted", "", true, true, false},
+		{"empty", "      read_only: true\n      receive_message_types: []\n", true, false, true},
+		{"subset", "      receive_message_types: [\"8\", \"9\"]\n", true, false, false},
+		{"not-subset", "      receive_message_types: [\"AE\"]\n", false, false, false},
+		{"duplicate", "      receive_message_types: [\"8\", \"8\"]\n", false, false, false},
+		{"admin", "      receive_message_types: [\"A\"]\n", false, false, false},
+		{"invalid-bool", "      read_only: perhaps\n", false, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			yaml := strings.Replace(base, "    - sender_comp_id: DEV_A\n", "    - sender_comp_id: DEV_A\n"+tc.yaml, 1)
+			c, err := Load(strings.NewReader(yaml))
+			if (err == nil) != tc.valid {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tc.valid && ((c.Downstream.Clients[0].ReceiveMessageTypes == nil) != tc.nilList || c.Downstream.Clients[0].ReadOnly != tc.readOnly) {
+				t.Fatal("policy decoded incorrectly")
+			}
+		})
+	}
+	yaml := strings.Replace(base, `app_message_types: ["D", "F", "G", "H", "V", "x"]`, "app_message_types: []", 1)
+	c, err := Load(strings.NewReader(yaml))
+	if err != nil || len(c.Upstream.AppTypes) != 0 {
+		t.Fatalf("empty upstream list: %v", err)
+	}
+	c = sample(t)
+	c.Fanout.AppTypes = append(c.Fanout.AppTypes, "AE", "x")
+	for _, tc := range []struct {
+		types []string
+		valid bool
+	}{
+		{[]string{"AE", "x", "X"}, true},
+		{[]string{"ae"}, false},
+		{[]string{""}, false},
+	} {
+		c.Downstream.Clients[0].ReceiveMessageTypes = tc.types
+		if (c.Validate() == nil) != tc.valid {
+			t.Fatalf("types %v", tc.types)
+		}
 	}
 }
 

@@ -2,6 +2,8 @@
 
 ## Current state
 
+Per-client read-only and receive filtering has an implementation checkpoint, but the full acceptance matrix is not complete; see `docs/CODEX_PER_CLIENT_DROP_COPY.md`. Basic configuration and router tests, three-client socket routing, filtered sequence numbers, shared notice exceptions and a YAML round-trip regression are covered. The Linux container test build passed formatting, vet, coverage gate (config 100%, gateway 97.3%, adapter 90.4%, sessions 100%, retention 92.6%), race-enabled integration and routing soak; the final expanded mixed-client and notice tests also passed separately under race, and the container demo passed. Dedicated per-client reconnect, restart, resend, multi-character message and full acceptance tests remain. The old Docker handoff tar has not been rebuilt with this feature.
+
 Phases 1–5 have working implementations and local regression evidence. Independent-engine interoperability, extended socket soak, linked-module/license inventory and clean-checkout demo reproduction passed. The gateway, durable recovery, offline retention, bounded transport, TLS/mTLS, metadata logging, health and metrics are implemented. Owner explicitly chose to keep project licensing undecided; no LICENSE, publication or release tag should be added. User decisions in CODEX_TASK.md take precedence over earlier suggestions.
 
 ## Completed

@@ -79,6 +79,7 @@ func New(c config.Config, observer ...*observability.Recorder) (*Runtime, error)
 	}
 	ids := make(map[string]quickfix.SessionID)
 	enabled := make(map[string]bool)
+	policies := make(map[string]gateway.ClientPolicy)
 	var clients []string
 	for id := range u.SessionSettings() {
 		a.Upstream = id
@@ -88,6 +89,7 @@ func New(c config.Config, observer ...*observability.Recorder) (*Runtime, error)
 	for id := range d.SessionSettings() {
 		for _, cl := range c.Downstream.Clients {
 			if id.TargetCompID == cl.Sender {
+				policies[id.String()] = gateway.ClientPolicy{ReadOnly: cl.ReadOnly, ReceiveTypes: cl.ReceiveMessageTypes}
 				enabled[id.String()] = !cl.Disabled
 				password, e := ResolveSecret(cl.Password)
 				if e != nil {
@@ -133,7 +135,7 @@ func New(c config.Config, observer ...*observability.Recorder) (*Runtime, error)
 	a.Stores = r.Stores
 	r.Registry = sessions.New(enabled, time.Now)
 	a.Registry = r.Registry
-	r.Router = gateway.New(gateway.Options{Upstream: a.Upstream.String(), Clients: clients, UpstreamTypes: c.Upstream.AppTypes, DownstreamTypes: c.Fanout.AppTypes, DenyTypes: c.Fanout.DenyTypes, UpstreamQueue: c.Service.UpstreamQueue, DownstreamQueue: c.Service.DownstreamQueue, ByteBudget: 64 << 20}, r.Registry, EngineSender{IDs: ids})
+	r.Router = gateway.New(gateway.Options{Upstream: a.Upstream.String(), Clients: clients, ClientPolicies: policies, UpstreamTypes: c.Upstream.AppTypes, DownstreamTypes: c.Fanout.AppTypes, DenyTypes: c.Fanout.DenyTypes, UpstreamQueue: c.Service.UpstreamQueue, DownstreamQueue: c.Service.DownstreamQueue, ByteBudget: 64 << 20}, r.Registry, EngineSender{IDs: ids})
 	a.Router = r.Router
 	r.Application = a
 	// Raw engine logs can contain payloads, parser errors and credentials. Disable
@@ -200,6 +202,7 @@ func (r *Runtime) Start() error {
 func (r *Runtime) Snapshot() observability.Snapshot {
 	g := r.Router
 	s := observability.Snapshot{Ready: g.Ready() && r.Stores.Healthy(), Forwarded: g.Counters.Forwarded.Load(), Failed: g.Counters.Failed.Load(), Dropped: g.Counters.Dropped.Load(), Recipients: g.Counters.Recipients.Load(), Replays: r.Observer.Replay.Load(), EngineErrors: r.Observer.EngineErrors.Load(), AuthFailures: r.Observer.AuthFailures.Load(), Cleanups: r.Stores.CleanupCount.Load(), QueueBytes: g.QueueBytes(), QueueDepth: g.QueueDepth(), StoreBytes: r.Stores.CachedUsage()}
+	s.Blocked = g.Counters.Blocked.Load()
 	s.StoreWarning = s.StoreBytes >= r.storeWarn
 	s.EngineQueueBytes = r.Pending.Usage()
 	for _, state := range r.Registry.Snapshot() {

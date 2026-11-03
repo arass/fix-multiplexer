@@ -67,6 +67,25 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the proposed failure seman
 
 ## Nonproduction use only
 
+### Per-client read-only FIX subscribers
+
+Each configured downstream client can be independently restricted:
+
+```yaml
+downstream:
+  clients:
+    - sender_comp_id: TRADING
+    - sender_comp_id: RISK
+      read_only: true
+      receive_message_types: ["8", "9"]
+```
+
+`read_only` defaults to false. A read-only client's application submissions are rejected with a gateway-generated BusinessMessageReject; its FIX session and administrative messages continue normally. Writable clients still obey `upstream.app_message_types`; set that list to `[]` to block all clients from submitting application messages. Omit `receive_message_types` to inherit the global fanout list, or use `[]` to receive no upstream application messages. Explicit types must be in the global fanout allowlist, and `fanout.deny_message_types` always takes precedence. Gateway-generated submission errors and shared upstream session Reject notices are delivered independently of receive filters.
+
+Subscribers see matching messages for all clients sharing the upstream session. This is best-effort Drop Copy-style fan-out, not a consolidated venue feed or authoritative audit trail: the upstream must send the messages, and disconnected clients miss new broadcasts. FIX resend only recovers messages already assigned to that client's session and retained in its store. This remains a nonproduction tool. See `config/drop-copy.example.yaml` for a complete local configuration.
+
+Changing a client to read-only does not erase previously accepted messages from the upstream FIX session's resend history; that session may replay messages already assigned to it according to normal FIX recovery rules.
+
 **FIX Multiplexer is intended for development and testing, not production trading.** All clients share the counterparty's business state and potentially its order-ID uniqueness scope and rate limits. All connected downstream clients may receive each other's execution reports or other application messages.
 
 - Use only with **trusted, authorized participants** and synthetic or otherwise permitted test data.

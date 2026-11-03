@@ -71,6 +71,7 @@ type Session struct {
 	LoggedOn, Enabled bool
 }
 type Snapshot struct {
+	Blocked                                                                               uint64
 	Ready                                                                                 bool
 	Forwarded, Failed, Dropped, Recipients, Replays, EngineErrors, AuthFailures, Cleanups uint64
 	QueueBytes, QueueDepth, StoreBytes                                                    int64
@@ -117,7 +118,7 @@ func Handler(p Provider) http.Handler {
 		for _, v := range []struct {
 			name  string
 			value uint64
-		}{{"forwarded_total", s.Forwarded}, {"failed_total", s.Failed}, {"dropped_total", s.Dropped}, {"fanout_recipients_total", s.Recipients}, {"replays_total", s.Replays}, {"engine_errors_total", s.EngineErrors}, {"auth_failures_total", s.AuthFailures}, {"cleanup_total", s.Cleanups}} {
+		}{{"forwarded_total", s.Forwarded}, {"failed_total", s.Failed}, {"blocked_total", s.Blocked}, {"dropped_total", s.Dropped}, {"fanout_recipients_total", s.Recipients}, {"replays_total", s.Replays}, {"engine_errors_total", s.EngineErrors}, {"auth_failures_total", s.AuthFailures}, {"cleanup_total", s.Cleanups}} {
 			fmt.Fprintf(w, "fix_mux_%s %d\n", v.name, v.value)
 		}
 		fmt.Fprintf(w, "fix_mux_queue_bytes %d\nfix_mux_queue_depth %d\nfix_mux_store_bytes %d\nfix_mux_ready %d\nfix_mux_store_warning %d\n", s.QueueBytes, s.QueueDepth, s.StoreBytes, boolean(s.Ready), boolean(s.StoreWarning))

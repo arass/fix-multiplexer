@@ -31,6 +31,7 @@ upstream:
   # H Order Status Request, V Market Data Request, x Security List Request.
   # Add other application types required by your counterparty, for example Z
   # (Quote Cancel) if developers send quote cancellations.
+  # Use [] to prohibit all client application messages upstream.
   app_message_types: ["D", "F", "G", "H", "V", "x"]
 # The gateway accepts one separate session per allowlisted client.
 downstream:
@@ -47,6 +48,10 @@ downstream:
   # Set a separate password for each client; the client sends it in FIX Logon tag 554.
   # Passwords are required for network listeners. Without one, local access relies
   # on SenderCompID alone. Never put actual passwords in this file.
+  # Optional per client: read_only: true prevents sending application messages.
+  # receive_message_types: ["8"] limits that client to execution reports;
+  # omit to inherit the global fanout list, or use [] to receive none.
+  # Gateway-generated operational notices and errors are still delivered.
   clients:
     - sender_comp_id: DEV_A
       # password: {env: FIX_DEV_A_PASSWORD}

@@ -1,5 +1,7 @@
 # Architecture and delivery semantics
 
+Per-client subscriber policies apply only to application routing. A read-only client cannot submit application messages upstream; a gateway BusinessMessageReject reports each denial. A client's optional receive list narrows the global fanout allowlist, and the global deny list wins. An omitted receive list inherits the global policy; an empty list receives no upstream application messages. Gateway-generated submission errors and shared upstream session Reject notices bypass receive filters. Session administration remains local to each FIX engine, and disconnected clients receive no new application backlog. Subscriptions are by message type, not order ownership.
+
 ## Connections
 
 Each downstream client has a distinct FIX session with the multiplexer (acceptor). The multiplexer has exactly one upstream FIX session (initiator). The daemon terminates FIX at both boundaries: its application layer forwards business messages but **never** tunnels FIX admin frames or upstream sequence numbers downstream.
