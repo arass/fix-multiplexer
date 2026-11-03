@@ -1,44 +1,54 @@
 # Example FIX 4.4 configuration for local development and the mock venue.
 # No real credentials, private endpoints, or public listener defaults.
+# Run from the repository root; relative paths below are relative to that directory.
+# See README.md for setup, TLS, credentials, and the current local security limitation.
 service:
   name: fix-multiplexer
-  mode: nonproduction
-  bind: 127.0.0.1
-  health_bind: 127.0.0.1:8081
-  max_message_bytes: 1048576
+  mode: nonproduction # the only supported mode
+  bind: 127.0.0.1 # validated loopback address; FIX listener is set under downstream
+  health_bind: 127.0.0.1:8081 # local /live, /ready and /metrics; use "" to disable
+  max_message_bytes: 1048576 # maximum bytes per message, up to 1 MiB
+  # Bounded message counts; actual queue memory is also limited.
   upstream_queue_messages: 1000
   downstream_queue_messages_per_client: 1000
-  startup_timeout: 15s
-  shutdown_timeout: 10s
+  startup_timeout: 15s # maximum overall startup time
+  shutdown_timeout: 10s # maximum overall graceful shutdown time
+# The gateway initiates one session to the counterparty.
 upstream:
-  fix_version: FIX.4.4
-  host: 127.0.0.1
+  fix_version: FIX.4.4 # both sides currently require FIX 4.4
+  host: 127.0.0.1 # counterparty host
   port: 9880
-  sender_comp_id: MULTIPLEXER
-  target_comp_id: MOCKVENUE
-  store_dir: ./state/upstream
+  sender_comp_id: MULTIPLEXER # gateway identity assigned by the counterparty
+  target_comp_id: MOCKVENUE # counterparty identity
+  store_dir: ./state/upstream # durable session history; protect and retain on restart
   tls_enabled: false # local mock only; verify server certificates when enabled
-  # Add username/password environment or file references when required.
+  # For credentials or TLS, see README.md; do not put credential values here.
+  # username: {env: FIX_UPSTREAM_USERNAME}
+  # password: {env: FIX_UPSTREAM_PASSWORD}
+# The gateway accepts one separate session per allowlisted client.
 downstream:
   fix_version: FIX.4.4
-  listen: 127.0.0.1:9879
-  target_comp_id: MULTIPLEXER
+  listen: 127.0.0.1:9879 # literal loopback address only
+  target_comp_id: MULTIPLEXER # each client's TargetCompID
+  # Each client must use its own SenderCompID. Up to 128 entries are supported.
+  # An allowlisted CompID alone is not a password; configure authentication as needed.
   clients:
     - sender_comp_id: DEV_A
     - sender_comp_id: DEV_B
     - sender_comp_id: QA_1
-  store_dir: ./state/downstream
+  store_dir: ./state/downstream # separate durable history for each client session
 fanout:
-  mode: live-only
-  app_message_types: ["8", "9", "j"] # example narrows the default fanout policy
+  mode: live-only # clients miss broadcasts while disconnected; no offline queue
+  app_message_types: ["8", "9", "j"] # execution report, cancel reject, business reject
 retention:
   downstream_replay_window: 8h # older application replay requests retire the session
-  upstream_replay_window: 0s # independent: no age cutoff, still subject to disk budgets
-  inactive_client_ttl: 168h
-  prune_active_sessions: false
-  disk_warn_bytes: 1073741824
-  disk_limit_bytes: 2147483648
-  session_limit_bytes: 67108864
+  upstream_replay_window: 0s # no upstream age cutoff; disk limits still apply
+  inactive_client_ttl: 168h # 7 days; offline cleanup must be run explicitly
+  prune_active_sessions: false # required: never remove active session history
+  disk_warn_bytes: 1073741824 # 1 GiB warning threshold
+  disk_limit_bytes: 2147483648 # 2 GiB combined store budget
+  session_limit_bytes: 67108864 # 64 MiB per session store budget
 logging:
-  mode: metadata
+  mode: metadata # logs omit FIX message contents and credentials
+  # Sensitive tags; metadata mode omits all message bodies, not just these tags.
   redact_tags: ["89", "91", "96", "553", "554", "925", "1402", "1404"]
