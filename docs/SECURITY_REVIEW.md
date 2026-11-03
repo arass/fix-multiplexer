@@ -12,6 +12,12 @@ The upstream transport bridge listens on an ephemeral loopback TCP port and acce
 
 Downstream authentication is optional; without a configured password or mTLS, the allowlisted CompID is an identifier rather than a secret. All connected clients receive broadcasts. Deploy only among mutually trusted clients and local processes, and explicitly configure appropriate authentication. FIX file stores contain message payloads and must be protected by filesystem permissions and host/container access controls. Existing directories retain their existing permissions; verify them during deployment.
 
+### Upstream credentials persist in the FIX store
+
+**Confirmed:** QuickFIX/Go persists outgoing Logon messages before sending them. If an upstream username or password is configured, the corresponding Logon fields are written to the upstream session's durable body file in plaintext. The event and application logs suppress message content, but that does not remove credentials from session stores, snapshots or backups. `TestUpstreamLogonCredentialIsPersisted` verifies this with a synthetic local credential and no raw payload output.
+
+**Status: open.** Restrict store and backup access, use encrypted storage as appropriate, and rotate any credentials if a store is exposed. Existing files and backups remain sensitive even if future code changes reduce persistence. Investigate safely omitting sensitive admin payloads without breaking FIX sequencing, resend, restart or message-store integrity; validate with recovery and engine interoperability tests before changing this behavior.
+
 ## Dependency scan
 
 On 2026-11-02, `govulncheck v1.1.4 ./...` using Go 1.27.3 reported zero reachable vulnerable symbols. It also reported one vulnerability in an imported package and 19 in required modules whose vulnerable symbols were not found reachable. The imported-package result is [GO-2025-3503](https://pkg.go.dev/vuln/GO-2025-3503), affecting `golang.org/x/net v0.24.0` and fixed in v0.36.0; assess dependency updates and re-run the scan rather than interpreting an unreachable result as proof of safety. The scan covers the Go source and database state at that time, not the Java fixture or container OS packages.
@@ -19,7 +25,7 @@ On 2026-11-02, `govulncheck v1.1.4 ./...` using Go 1.27.3 reported zero reachabl
 ## Remaining review tasks
 
 - Investigate and remediate the upstream bridge trust boundary; validate with local adversarial socket tests, TLS/mTLS and reconnect integration tests.
-- Review upstream admin-message persistence and verify secret exposure in actual file stores.
+- Design and validate a safe mitigation for confirmed upstream logon credential persistence, including existing-store handling.
 - Review authentication, authorization, TLS, health endpoints, filesystem race/symlink handling, resource-exhaustion paths, logging and error redaction.
 - Assess dependency upgrades and scan container/Java dependencies where tooling is available.
 - Record verified findings, fixes, tests and residual limitations; update task documents and commit each completed step locally.

@@ -41,6 +41,8 @@ Prune eligibility requires an inactive client whose last disconnect is at least 
 
 Store directories are hash-named beneath the configured roots. Metadata contains connection/retirement state, not FIX payloads. File-store bodies contain business messages for FIX resend and should be protected as sensitive test data. Root ownership is restricted when creating new directories; do not reuse an insecure shared directory.
 
+The upstream store also contains outgoing FIX Logon messages and may contain the configured username and password in plaintext. Restrict access to the store and its backups, and use encrypted storage as appropriate. Metadata-only logging does not sanitize durable FIX stores. See SECURITY_REVIEW.md.
+
 Checkpoints before the Phase 4 store-path regression fix could create engine files directly in a root. Such legacy files now block startup explicitly. Do not reset or delete them to get past the check: preserve their sequence state and migrate them offline into the correct session hash directory, or deliberately coordinate fresh session provisioning. There is no automatic legacy migration. Configuration-relative paths are resolved from the process working directory; run documented commands from the repository root.
 
 ## Hard crash recovery

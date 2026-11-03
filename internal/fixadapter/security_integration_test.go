@@ -3,12 +3,14 @@
 package fixadapter
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,6 +19,60 @@ import (
 	"fix-multiplexer/internal/config"
 	"fix-multiplexer/internal/testfix"
 )
+
+// FIX engine stores the outbound Logon as well as application messages. This
+// synthetic regression documents why the durable store needs secret protection.
+func TestUpstreamLogonCredentialIsPersisted(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	t.Setenv("FIX_TEST_SYNTHETIC_PASSWORD", "synthetic-review-credential")
+	venueListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer venueListener.Close()
+	clientListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clientListener.Close()
+	c := runtimeConfig(t)
+	c.Downstream.Listen = clientListener.Addr().String()
+	_, port, _ := net.SplitHostPort(venueListener.Addr().String())
+	c.Upstream.Port, _ = strconv.Atoi(port)
+	c.Upstream.Password = config.Secret{Env: "FIX_TEST_SYNTHETIC_PASSWORD"}
+	venue := testfix.NewPeer()
+	vs, _, err := testfix.Settings(c.Upstream.Target, c.Upstream.Sender, venueListener.Addr().String(), c.Upstream.Dictionary, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acceptor, err := testfix.Listen(venue, venueListener, vs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer acceptor.Stop()
+	r, err := New(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.SetListenerFactory(func(string, *tls.Config) (net.Listener, error) { return clientListener, nil })
+	if err = r.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer r.Stop()
+	wait(t, ctx, venue.Logons)
+	files, err := filepath.Glob(filepath.Join(c.Upstream.StoreDir, "*", "*.body"))
+	if err != nil || len(files) != 1 {
+		t.Fatal("upstream store not found")
+	}
+	data, err := os.ReadFile(files[0])
+	if err != nil {
+		t.Fatal("cannot read synthetic store")
+	}
+	if !bytes.Contains(data, []byte("synthetic-review-credential")) {
+		t.Fatal("expected synthetic logon credential in store")
+	}
+}
 
 func TestUpstreamTLSVerifiesIdentity(t *testing.T) {
 	if testing.Short() {
