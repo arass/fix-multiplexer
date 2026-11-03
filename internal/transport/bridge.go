@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
 	"net"
 	"sync"
@@ -41,6 +42,18 @@ func (b *Bridge) Start() {
 			b.mu.Lock()
 			b.active = local
 			b.mu.Unlock()
+			// A TLS listener performs its handshake lazily. Authenticate before
+			// dialing the real upstream, with a bounded unauthenticated wait.
+			if secure, ok := local.(*tls.Conn); ok {
+				ctx, cancel := context.WithTimeout(b.ctx, 5*time.Second)
+				err := secure.HandshakeContext(ctx)
+				cancel()
+				if err != nil {
+					b.pool.reject()
+					local.Close()
+					continue
+				}
+			}
 			remote, err := b.dial(b.ctx)
 			if err != nil {
 				b.pool.reject()

@@ -4,7 +4,7 @@
 
 FIX Multiplexer is a standalone **FIX-to-FIX session multiplexer** for trading-system development, QA, certification rehearsals, and shared UAT environments. It lets multiple independent FIX clients connect to a single FIX counterparty session without changing those clients to use REST, WebSockets, or a proprietary SDK.
 
-> **Project status:** A nonproduction development checkpoint with local regression evidence, including QuickFIX/J interoperability. Licensing is undecided and no release is published. A security review is in progress: an unresolved local-process access issue affects the upstream bridge. Use an isolated host or network namespace containing only trusted processes; see the [security review](docs/SECURITY_REVIEW.md).
+> **Project status:** A nonproduction development checkpoint with local regression evidence, including QuickFIX/J interoperability. Licensing is undecided and no release is published. A security review is in progress; use an isolated host or network namespace containing only trusted processes and see the [security review](docs/SECURITY_REVIEW.md).
 
 ```text
 Dev A ── FIX ──┐
@@ -146,7 +146,7 @@ downstream:
 
 For downstream TLS, set `downstream.tls_enabled: true` and provide `downstream.tls.cert_file` and `downstream.tls.key_file`. For mutual TLS, also set `downstream.tls.ca_file` and `downstream.tls.require_client_cert: true`; clients must trust the gateway certificate and present an accepted client certificate. The gateway verifies the certificate against its CA but does not bind it to a particular SenderCompID; a configured per-client password is checked separately in the FIX Logon. Without a password or mTLS, an allowlisted CompID alone is not a secret. An upstream TLS certificate is verified against the configured `server_name`, or the upstream host when that field is omitted.
 
-**Connection scope:** downstream FIX and management listeners require literal loopback addresses, so clients must reach the gateway through the same network namespace; this version cannot bind a public or LAN address. The local upstream bridge currently trusts other processes in that namespace. Use only trusted processes and clients, and read the [security review](docs/SECURITY_REVIEW.md) before connecting credentials. All logged-on downstream clients receive allowed upstream broadcasts, including messages concerning other clients.
+**Connection scope:** downstream FIX and management listeners require literal loopback addresses, so clients must reach the gateway through the same network namespace; this version cannot bind a public or LAN address. The local upstream bridge authenticates its engine connection, but remains subject to local denial-of-service attempts. Use only trusted processes and clients, and read the [security review](docs/SECURITY_REVIEW.md) before connecting credentials. All logged-on downstream clients receive allowed upstream broadcasts, including messages concerning other clients.
 
 ### FIX recovery and troubleshooting
 

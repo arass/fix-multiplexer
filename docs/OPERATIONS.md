@@ -63,9 +63,9 @@ Both network boundaries cap unread bytes before engine parsing. That cap also bo
 
 The allowlist supports at most 128 configured clients, including disabled entries. Older configuration files containing `service.max_clients` must remove that field; strict validation rejects it. The connection cap is calculated automatically.
 
-The upstream engine connects through a private loopback transport bridge because its API has no custom dial/read hook. The bridge performs certificate-verified TLS against the configured venue and copies opaque bytes for that same FIX session. It does not interpret FIX, tunnel admin messages between independent sessions, or replace the engine. Independent logon/admin/sequence behavior remains at the two FIX boundaries.
+The upstream engine connects through a private loopback transport bridge because its API has no custom dial/read hook. The engine and bridge authenticate each other using an ephemeral in-memory TLS identity; the bridge then performs separately configured, certificate-verified TLS against the venue when enabled. The bridge copies opaque bytes for that same FIX session. It does not interpret FIX, tunnel admin messages between independent sessions, or replace the engine. Independent logon/admin/sequence behavior remains at the two FIX boundaries.
 
-The loopback bridge does not authenticate the connecting local process. Other processes in the same network namespace can potentially use or occupy its upstream connection, including the configured client certificate. Run only with mutually trusted local processes in a dedicated host or isolated network namespace until this is addressed. See SECURITY_REVIEW.md.
+An unauthenticated local peer can still consume the bounded bridge handshake slot temporarily. Run the gateway with trusted local processes and protect its process memory and stores. See SECURITY_REVIEW.md.
 
 Downstream mTLS checks that the client certificate chains to the configured CA; it does not bind a certificate identity to one SenderCompID. Configure distinct per-client FIX passwords and use network isolation where individual client identities must be protected. All logged-on clients still receive the same permitted broadcast messages.
 

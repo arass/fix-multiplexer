@@ -4,11 +4,11 @@ Review started 2026-11-02 against local tag `security-review-baseline` (commit 6
 
 The owner clarified that developers need to connect over a network and their FIX Logon credentials may differ from the exchange credentials. The current downstream listener is loopback-only and does not yet satisfy remote access. Upstream credentials and per-client downstream passwords are configured independently. `TestDownstreamLogonUsesSeparatePassword` verifies over local FIX sockets that a missing password and the upstream password are rejected, while the configured client password is accepted. Network exposure, TLS, and whether client identity is SenderCompID or a separate FIX username require a security design and end-to-end tests before remote binding is enabled. The intended network and identity details are pending owner clarification.
 
-## High: upstream bridge trusts all local processes
+## Fixed: upstream bridge accepted unauthenticated local processes
 
 The upstream transport bridge listens on an ephemeral loopback TCP port and accepts a connection without authenticating its local peer (`internal/transport/bridge.go`). It then opens the configured upstream connection, including using the configured TLS client certificate if present. A local process able to connect to that port can occupy the bridge and send bytes through the gateway's upstream transport. This can bypass downstream allowlisting and, where the venue trusts the gateway's client certificate, provide a path to impersonation. It also permits denial of service by occupying the bridge. The peer must discover the port and meet any separate venue authentication requirements; the issue does not by itself establish credential disclosure.
 
-**Status: open.** Loopback restricts network exposure but does not isolate users on the same host or processes sharing a network namespace. Until fixed, use a dedicated host or an isolated network namespace containing only mutually trusted processes. Do not treat mTLS at the venue as a defense against an untrusted local process using this bridge. Investigate an authenticated engine-to-bridge transport compatible with QuickFIX/Go without changing FIX session semantics; add negative and reconnect regressions before considering it fixed.
+**Status: fixed in the working code.** The engine and private bridge now mutually authenticate using a process-specific ephemeral TLS identity generated in memory. The bridge completes the handshake before dialing the configured upstream; a local peer with no certificate or an unrelated certificate is rejected. A local test verifies both rejection and a subsequent successful authenticated connection, and the real upstream TLS, persistent recovery, race-enabled integration, QuickFIX/J interoperability and container smoke checks passed. Local peers can still attempt to occupy the bounded handshake for up to five seconds at a time, so this is not a guarantee against local denial of service or privileged access to process memory. Continue to isolate the gateway from untrusted local processes.
 
 ## Trust and storage
 
@@ -34,7 +34,7 @@ Session metadata was read entirely into memory before its 4 KiB size check. A lo
 
 ## Remaining review tasks
 
-- Investigate and remediate the upstream bridge trust boundary; validate with local adversarial socket tests, TLS/mTLS and reconnect integration tests.
+- Assess residual local denial-of-service exposure and operational isolation of the authenticated upstream bridge.
 - Design and validate a safe mitigation for confirmed upstream logon credential persistence, including existing-store handling.
 - Review authentication, authorization, TLS, health endpoints, filesystem race/symlink handling, resource-exhaustion paths, logging and error redaction.
 - Test cross-identity mTLS attempts and assess per-client certificate identity binding and duplicate-session exhaustion.

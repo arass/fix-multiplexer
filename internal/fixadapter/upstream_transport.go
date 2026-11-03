@@ -40,6 +40,10 @@ func (r *Runtime) prepareUpstreamTransport(c config.Config, settings *quickfix.S
 			secure.Certificates = []tls.Certificate{cert}
 		}
 	}
+	privateTLS, err := privateBridgeTLS(settings)
+	if err != nil {
+		return err
+	}
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return errors.New("cannot bind private upstream transport")
@@ -53,12 +57,11 @@ func (r *Runtime) prepareUpstreamTransport(c config.Config, settings *quickfix.S
 		}
 		return d.DialContext(ctx, "tcp", address)
 	}
-	r.bridge = transport.NewBridge(l, r.UpstreamTransport, r.Application.Upstream.String(), dial)
+	r.bridge = transport.NewBridge(tls.NewListener(l, privateTLS), r.UpstreamTransport, r.Application.Upstream.String(), dial)
 	host, port, _ := net.SplitHostPort(l.Addr().String())
-	// The engine's network hop is private loopback; TLS is verified by the
-	// transport bridge against the configured counterparty, never skipped.
+	// The engine authenticates the private loopback bridge separately from the
+	// bridge's independently verified TLS connection to the counterparty.
 	settings.GlobalSettings().Set("SocketConnectHost", host)
 	settings.GlobalSettings().Set("SocketConnectPort", port)
-	settings.GlobalSettings().Set("SocketUseSSL", "N")
 	return nil
 }
