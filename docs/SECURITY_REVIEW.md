@@ -2,7 +2,7 @@
 
 Review started 2026-11-02 against local tag `security-review-baseline` (commit 67f1284). This is a working review, not an independent audit or a production approval.
 
-The owner clarified that developers need to connect over a network and their FIX Logon credentials may differ from the exchange credentials. The current downstream listener is loopback-only and does not yet satisfy remote access. Upstream credentials and per-client downstream passwords are configured independently. Network exposure, TLS, and whether client identity is SenderCompID or a separate FIX username require a security design and end-to-end tests before remote binding is enabled. The intended network and identity details are pending owner clarification.
+The owner clarified that developers need to connect over a network and their FIX Logon credentials may differ from the exchange credentials. The current downstream listener is loopback-only and does not yet satisfy remote access. Upstream credentials and per-client downstream passwords are configured independently. `TestDownstreamLogonUsesSeparatePassword` verifies over local FIX sockets that a missing password and the upstream password are rejected, while the configured client password is accepted. Network exposure, TLS, and whether client identity is SenderCompID or a separate FIX username require a security design and end-to-end tests before remote binding is enabled. The intended network and identity details are pending owner clarification.
 
 ## High: upstream bridge trusts all local processes
 
@@ -16,7 +16,7 @@ Downstream authentication is optional; without a configured password or mTLS, th
 
 ### Client certificates are not bound to individual FIX identities
 
-Code inspection shows that downstream mTLS verifies that a certificate is trusted by the configured CA, but does not map its subject or fingerprint to a specific SenderCompID. A holder of another certificate trusted by the same CA can claim an allowlisted CompID; a per-client FIX password, if configured, is checked separately. Duplicate-connection rejection can also let an early connection occupy a session. This is a trust-boundary limitation, not evidence that a particular deployment has been compromised. For mutually untrusted clients, use distinct strong per-client credentials and additional network isolation; assess certificate-to-CompID binding before promising per-client certificate identity. Integration tests for cross-identity attempts are still needed.
+Code inspection shows that downstream mTLS verifies that a certificate is trusted by the configured CA, but does not map its subject or fingerprint to a specific SenderCompID. The existing `TestDownstreamMutualTLS` logs on as `CLIENT` with a trusted certificate whose subject is `synthetic-local-test`, confirming that a matching identity is not required. A holder of another certificate trusted by the same CA can claim an allowlisted CompID; a per-client FIX password, if configured, is checked separately. Duplicate-connection rejection can also let an early connection occupy a session. This is a trust-boundary limitation, not evidence that a particular deployment has been compromised. For mutually untrusted clients, use distinct strong per-client credentials and additional network isolation; assess certificate-to-CompID binding before promising per-client certificate identity. Additional cross-client tests remain useful.
 
 ### Upstream credentials persist in the FIX store
 
