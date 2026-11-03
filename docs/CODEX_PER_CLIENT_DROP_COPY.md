@@ -90,7 +90,7 @@ Use terminology **"best-effort Drop Copy-style fan-out"** or **"read-only FIX su
 
 ## Tests required
 
-Checkpoint: basic configuration, router and three-session FIX coverage has been added. The full acceptance matrix below, including detailed recovery/restart and message-type coverage, still requires dedicated per-client tests and review; existing generic recovery tests alone do not complete this task.
+Checkpoint: real FIX-session tests now cover read-only and receive filters across disconnect/reconnect and gateway restart; live-only delivery; replay of a previously delivered report; filtered messages excluded from the downstream sequence and resend store; and a multi-character `AE` message with a repeating group delivered only to a matching subscriber. Unit and other socket tests cover basic policy and notice behavior. The broader matrix below still calls for explicit real-session `F`, unlisted-type and admin TestRequest coverage; do not treat these remaining cases as individually verified by the recovery test.
 
 Write focused unit tests of all added branches plus real FIX-session integration tests. At minimum:
 

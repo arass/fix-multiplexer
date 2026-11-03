@@ -33,7 +33,8 @@ func TestMixedClientPolicySessions(t *testing.T) {
 	_, port, _ := net.SplitHostPort(venueListener.Addr().String())
 	c.Upstream.Port, _ = strconv.Atoi(port)
 	c.Downstream.Listen = muxListener.Addr().String()
-	c.Downstream.Clients = []config.Client{{Sender: "TRADING"}, {Sender: "RISK", ReadOnly: true, ReceiveMessageTypes: []string{"8"}}, {Sender: "QUIET", ReadOnly: true, ReceiveMessageTypes: []string{}}}
+	c.Downstream.Clients = []config.Client{{Sender: "TRADING", ReceiveMessageTypes: []string{"8", "9"}}, {Sender: "RISK", ReadOnly: true, ReceiveMessageTypes: []string{"8"}}, {Sender: "QUIET", ReadOnly: true, ReceiveMessageTypes: []string{}}, {Sender: "COMPLIANCE", ReadOnly: true, ReceiveMessageTypes: []string{"AE"}}}
+	c.Fanout.AppTypes = append(c.Fanout.AppTypes, "AE")
 	venue := testfix.NewPeer()
 	vs, venueID, err := testfix.Settings(c.Upstream.Target, c.Upstream.Sender, venueListener.Addr().String(), c.Upstream.Dictionary, false)
 	if err != nil {
@@ -54,9 +55,9 @@ func TestMixedClientPolicySessions(t *testing.T) {
 	}
 	defer r.Stop()
 	wait(t, ctx, venue.Logons)
-	clients := []*testfix.Peer{testfix.NewPeer(), testfix.NewPeer(), testfix.NewPeer()}
+	clients := []*testfix.Peer{testfix.NewPeer(), testfix.NewPeer(), testfix.NewPeer(), testfix.NewPeer()}
 	ids := make([]quickfix.SessionID, len(clients))
-	for i, name := range []string{"TRADING", "RISK", "QUIET"} {
+	for i, name := range []string{"TRADING", "RISK", "QUIET", "COMPLIANCE"} {
 		settings, id, err := testfix.Settings(name, c.Downstream.Target, c.Downstream.Listen, c.Downstream.Dictionary, true)
 		if err != nil {
 			t.Fatal(err)
@@ -69,7 +70,7 @@ func TestMixedClientPolicySessions(t *testing.T) {
 		defer initiator.Stop()
 		wait(t, ctx, clients[i].Logons)
 	}
-	waitLogged(t, ctx, r, 4)
+	waitLogged(t, ctx, r, 5)
 	if err := quickfix.SendToTarget(testfix.Order("read-only"), ids[1]); err != nil {
 		t.Fatal(err)
 	}
@@ -126,6 +127,34 @@ func TestMixedClientPolicySessions(t *testing.T) {
 	riskAfter, err := quickfix.GetExpectedSenderNum(riskID)
 	if err != nil || riskAfter != riskBefore {
 		t.Fatalf("filtered risk sequence changed: %d -> %d (%v)", riskBefore, riskAfter, err)
+	}
+	trade := quickfix.NewMessage()
+	trade.Header.SetString(35, "AE")
+	for tag, value := range map[quickfix.Tag]string{571: "synthetic-trade", 570: "N", 55: "TEST", 32: "2", 31: "10", 75: "20260101", 60: "20260101-12:00:00.000"} {
+		trade.Body.SetString(tag, value)
+	}
+	sides := quickfix.NewRepeatingGroup(552, quickfix.GroupTemplate{quickfix.GroupElement(54), quickfix.GroupElement(37)})
+	side := sides.Add()
+	side.SetString(54, "1")
+	side.SetString(37, "synthetic-order")
+	trade.Body.SetGroup(sides)
+	if err := quickfix.SendToTarget(trade, venueID); err != nil {
+		t.Fatal(err)
+	}
+	gotTrade := wait(t, ctx, clients[3].Messages)
+	tradeType, _ := gotTrade.MsgType()
+	tradeID, _ := gotTrade.Body.GetString(571)
+	gotSides := quickfix.NewRepeatingGroup(552, quickfix.GroupTemplate{quickfix.GroupElement(54), quickfix.GroupElement(37)})
+	if err := gotTrade.Body.GetGroup(gotSides); err != nil || gotSides.Len() != 1 {
+		t.Fatalf("trade side lost: %v", err)
+	}
+	orderID, _ := gotSides.Get(0).GetString(37)
+	if tradeType != "AE" || tradeID != "synthetic-trade" || orderID != "synthetic-order" {
+		t.Fatal("trade report payload changed")
+	}
+	riskAfterAE, err := quickfix.GetExpectedSenderNum(riskID)
+	if err != nil || riskAfterAE != riskAfter {
+		t.Fatal("AE consumed a filtered session sequence number")
 	}
 	if r.Router.Counters.Blocked.Load() != 1 {
 		t.Fatal("blocked counter")
