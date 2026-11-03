@@ -26,7 +26,7 @@ Copy `example.yaml` to `local.yaml` and edit the copy. Obtain the counterparty's
 - Set `downstream.listen: 0.0.0.0:9879` to accept connections through Docker's published port. Set `downstream.target_comp_id` to the gateway identity that clients will use as their TargetCompID.
 - Add a distinct `sender_comp_id` and password reference for each enabled client. A password reference is required for every enabled client when the listener is non-loopback. Each client sends its password in FIX Logon tag 554.
 - Check the upstream and fanout application message type lists against the messages required for testing. See the [README](../README.md) for defaults and configuration details.
-- Optionally set `read_only: true` or a `receive_message_types` list for individual clients; see the [subscriber example](../config/drop-copy.example.yaml). Receive filters do not isolate orders belonging to different clients.
+- Optionally set `read_only: true` or a `receive_message_types` list for individual clients; see the [example configuration](../config/example.yaml). Receive filters do not isolate orders belonging to different clients.
 - Keep `upstream.store_dir: ./state/upstream` and `downstream.store_dir: ./state/downstream` for the commands below. Relative paths resolve from `/app` in the container.
 - Use environment or mounted file references for credentials; do not put credential values in YAML. Configure TLS as required, and mount referenced certificates, keys, secret files, or custom dictionaries at the paths used in the config. They must be readable by the nonroot container user.
 

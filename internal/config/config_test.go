@@ -31,18 +31,14 @@ func TestSample(t *testing.T) {
 	}
 }
 
-func TestDropCopyExample(t *testing.T) {
-	f, err := os.Open("../../config/drop-copy.example.yaml")
-	if err != nil {
-		t.Fatal(err)
+func TestExampleMixedClients(t *testing.T) {
+	c := sample(t)
+	if len(c.Downstream.Clients) != 3 || c.Downstream.Clients[0].ReadOnly || !c.Downstream.Clients[1].ReadOnly || c.Downstream.Clients[2].ReadOnly {
+		t.Fatal("example does not contain the expected writable and read-only clients")
 	}
-	defer f.Close()
-	c, err := Load(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if c.Downstream.Clients[0].ReadOnly || !c.Downstream.Clients[1].ReadOnly || !c.Downstream.Clients[2].ReadOnly {
-		t.Fatal("example does not contain mixed clients")
+	client := c.Downstream.Clients[1]
+	if client.Sender != "DROP_COPY" || len(client.ReceiveMessageTypes) != 2 || client.ReceiveMessageTypes[0] != "8" || client.ReceiveMessageTypes[1] != "9" {
+		t.Fatal("example subscriber does not have the expected receive policy")
 	}
 }
 
@@ -70,7 +66,7 @@ func TestClientPolicies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	base := string(data)
+	base := strings.ReplaceAll(string(data), "\r\n", "\n")
 	for _, tc := range []struct {
 		name, yaml string
 		valid      bool

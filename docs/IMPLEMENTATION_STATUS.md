@@ -2,6 +2,8 @@
 
 ## Current state
 
+The owner consolidated the mixed-client subscriber example into `config/example.yaml`; it includes a read-only `DROP_COPY` client and writable developer clients. The separate example was removed. Configuration validation and `go test ./...` pass with the consolidated example.
+
 Documentation audit: architecture, operations, Docker setup, README and test guides now describe the current per-client filters, message-copy limits, maintenance and test commands. The milestone entries below are historical records; their then-pending items are not necessarily current. See `TEST_STATUS.md` and the subscriber task for remaining test variants.
 
 Per-client read-only and receive filtering has an implementation checkpoint. Real-session tests cover reconnect, restart, previously delivered message resend, no offline backlog, excluded messages absent from the downstream resend store, and `AE` fanout with a repeating group. The broader acceptance matrix still includes explicit real-session `F`, unlisted-type and admin TestRequest cases; see `docs/CODEX_PER_CLIENT_DROP_COPY.md`. The old Docker handoff tar has not been rebuilt with this feature.

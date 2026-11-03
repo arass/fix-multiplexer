@@ -48,7 +48,7 @@ fanout:
   app_message_types: ["8", "9", "AE"]
 ```
 
-Keep the original `config/example.yaml` a working UAT example; do not make all clients read-only. Add a separate runnable `config/drop-copy.example.yaml` containing mixed writable/read-only sessions and local/mock endpoints, without real secrets.
+Keep `config/example.yaml` a working UAT example with mixed writable and read-only sessions and local/mock endpoints, without real secrets. The owner consolidated the subscriber example into this file.
 
 ## Mandatory behavior
 
@@ -126,7 +126,7 @@ Use deterministic synchronization where possible. Run `go test ./...`, `go test 
 ## Documentation and scope
 
 - Update `README.md` with **"Per-client read-only FIX subscribers"** and a concise mixed-client example.
-- Update `config/example.yaml` comments and add `config/drop-copy.example.yaml`; validate examples in tests or CI.
+- Keep `config/example.yaml` comments and mixed-client configuration current; validate the example in tests or CI.
 - Update `docs/ARCHITECTURE.md`, `docs/TEST_PLAN.md`, and any configuration references that exist.
 - Explain why receive filtering does not affect administrative FIX traffic, and why `live-only` does not guarantee replay of disconnected-client messages.
 - Keep examples free of actual broker/customer secrets and client-specific references.

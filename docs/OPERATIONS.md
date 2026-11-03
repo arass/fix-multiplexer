@@ -12,7 +12,7 @@ go run ./cmd/fix-multiplexer -demo
 go run ./cmd/fix-multiplexer -config config/example.yaml
 ```
 
-The demo uses synthetic data and temporary stores. The daemon uses configured durable stores. Default MsgTypes toward upstream: D, F, G, H, V, x; downstream defaults are 8, 9, j, W, X, Y, y, as listed in the example. `fanout.deny_message_types` overrides both the downstream-to-upstream and upstream-to-downstream allowlists; administrative types cannot enter either application path. Unsupported or read-only downstream submissions receive a gateway BusinessMessageReject. Upstream types outside fanout policy are counted as drops. See the [subscriber example](../config/drop-copy.example.yaml) for client-specific settings.
+The demo uses synthetic data and temporary stores. The daemon uses configured durable stores. Default MsgTypes toward upstream: D, F, G, H, V, x; downstream defaults are 8, 9, j, W, X, Y, y, as listed in the example. `fanout.deny_message_types` overrides both the downstream-to-upstream and upstream-to-downstream allowlists; administrative types cannot enter either application path. Unsupported or read-only downstream submissions receive a gateway BusinessMessageReject. Upstream types outside fanout policy are counted as drops. See the [example configuration](../config/example.yaml) for client-specific settings.
 
 ## Recovery and eight-hour history
 
