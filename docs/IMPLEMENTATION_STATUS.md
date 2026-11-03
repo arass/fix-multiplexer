@@ -2,7 +2,7 @@
 
 ## Current state
 
-The owner confirmed first-party ownership and selected Apache 2.0. Local release materials are prepared; current publication blockers and remaining checks are in `docs/PUBLIC_RELEASE_CHECKLIST.md`. Docker runtime demo, configuration validation, full Docker test target and coverage gate passed; a later Compose build lost the daemon connection, leaving the latest Compose demo and cleanup unverified. Do not publish or push a release without separate authorization.
+The owner confirmed first-party ownership and selected Apache 2.0. Local release materials are prepared; current publication blockers and remaining checks are in `docs/PUBLIC_RELEASE_CHECKLIST.md`. Docker runtime demo, configuration validation, full Docker test target, coverage gate and Compose demo passed. The first Compose attempt lost the Docker connection; the retry passed after Docker restarted, and temporary images and the container were removed. Do not publish or push a release without separate authorization.
 
 The owner consolidated the mixed-client subscriber example into `config/example.yaml`; it includes a read-only `DROP_COPY` client alongside the original writable `DEV_A`, `DEV_B` and `QA_1` examples. The separate example was removed. Configuration validation and `go test ./...` pass with the consolidated example.
 
