@@ -20,11 +20,11 @@ Downstream authentication is optional; without a configured password or mTLS, th
 
 Code inspection shows that downstream mTLS verifies that a certificate is trusted by the configured CA, but does not map its subject or fingerprint to a specific SenderCompID. The existing `TestDownstreamMutualTLS` logs on as `CLIENT` with a trusted certificate whose subject is `synthetic-local-test`, confirming that a matching identity is not required. A holder of another certificate trusted by the same CA can claim an allowlisted CompID; a per-client FIX password, if configured, is checked separately. Duplicate-connection rejection can also let an early connection occupy a session. This is a trust-boundary limitation, not evidence that a particular deployment has been compromised. For mutually untrusted clients, use distinct strong per-client credentials and additional network isolation; assess certificate-to-CompID binding before promising per-client certificate identity. Additional cross-client tests remain useful.
 
-### Upstream credentials persist in the FIX store
+### Fixed for new records: upstream Logon credentials in the FIX store
 
-**Confirmed:** QuickFIX/Go persists outgoing Logon messages before sending them. If an upstream username or password is configured, the corresponding Logon fields are written to the upstream session's durable body file in plaintext. The event and application logs suppress message content, but that does not remove credentials from session stores, snapshots or backups. `TestUpstreamLogonCredentialIsPersisted` verifies this with a synthetic local credential and no raw payload output.
+**Confirmed in the previous implementation:** QuickFIX/Go persists outgoing Logon messages before sending them. Configured Logon credentials appeared in the upstream session's durable body file in plaintext despite metadata-only logs.
 
-**Status: open.** Restrict store and backup access, use encrypted storage as appropriate, and rotate any credentials if a store is exposed. Existing files and backups remain sensitive even if future code changes reduce persistence. Investigate safely omitting sensitive admin payloads without breaking FIX sequencing, resend, restart or message-store integrity; validate with recovery and engine interoperability tests before changing this behavior.
+**Status: fixed for newly written Logons.** The adapter now retains only required session header/sequence metadata in stored Logon records; the original Logon, including any configured credentials, is still sent to the peer. QuickFIX/Go gap-fills administrative messages during resend. A synthetic integration test verifies the venue receives the credential, new store bytes do not contain it, and a real request for the Logon sequence produces a valid gap fill. Application replay records remain unchanged. Existing store files, snapshots and backups are not rewritten and may retain old credentials. Do not delete or reset them without coordinating FIX sequence state; restrict access, use encrypted storage as appropriate, and rotate credentials if exposed. Application messages and other session data remain sensitive.
 
 ## Dependency scan
 
@@ -37,7 +37,7 @@ Session metadata was read entirely into memory before its 4 KiB size check. A lo
 ## Remaining review tasks
 
 - Assess residual local denial-of-service exposure and operational isolation of the authenticated upstream bridge.
-- Design and validate a safe mitigation for confirmed upstream logon credential persistence, including existing-store handling.
+- Plan coordinated handling of existing stores and backups that may still contain pre-fix Logon credentials; do not silently alter replay history.
 - Review authentication, authorization, TLS, health endpoints, filesystem race/symlink handling, resource-exhaustion paths, logging and error redaction.
 - Test cross-identity mTLS attempts and assess per-client certificate identity binding and duplicate-session exhaustion.
 - Confirm network exposure and whether separate FIX usernames are required; assess rate limiting, remote deployments and adversarial authentication tests before broader exposure.

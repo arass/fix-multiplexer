@@ -1,6 +1,7 @@
 package fixadapter
 
 import (
+	"bytes"
 	"crypto/tls"
 	"errors"
 	"io"
@@ -133,11 +134,81 @@ func TestGuardedStoreUpstreamAndCorruption(t *testing.T) {
 	if _, err := s.GetMessages(1, 1); err != nil {
 		t.Fatal("admin gap history unnecessarily expired")
 	}
-	if err := s.SaveMessage(2, []byte("corrupt")); err != nil {
+	if err := s.MessageStore.SaveMessage(2, []byte("corrupt")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.GetMessages(2, 2); !errors.Is(err, retention.ErrStorage) || s.manager.Healthy() {
 		t.Fatal("corruption hidden", err)
+	}
+}
+
+func TestLogonStorageOmitsBodyAndPreservesSequence(t *testing.T) {
+	s, _ := testStore(t, 0)
+	logon := framed("A")
+	logon.Body.SetString(553, "synthetic-username")
+	logon.Body.SetString(554, "synthetic-password")
+	logon.Body.SetString(5001, "synthetic-custom-secret")
+	original := logon.Bytes()
+	if err := s.SaveMessageAndIncrNextSenderMsgSeqNum(1, original); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := s.GetMessages(1, 1)
+	if err != nil || len(stored) != 1 {
+		t.Fatal("stored logon unavailable", err)
+	}
+	for _, value := range []string{"synthetic-username", "synthetic-password", "synthetic-custom-secret"} {
+		if bytes.Contains(stored[0], []byte(value)) {
+			t.Fatal("logon body persisted")
+		}
+	}
+	if !bytes.Contains(original, []byte("synthetic-password")) {
+		t.Fatal("wire message mutated")
+	}
+	parsed := quickfix.NewMessage()
+	if err = quickfix.ParseMessage(parsed, bytes.NewBuffer(stored[0])); err != nil {
+		t.Fatal(err)
+	}
+	typ, _ := parsed.MsgType()
+	seq, _ := parsed.Header.GetInt(34)
+	if typ != "A" || seq != 77 || s.NextSenderMsgSeqNum() != 2 {
+		t.Fatal("logon replay metadata changed")
+	}
+	application := framed("8").Bytes()
+	if err = s.SaveMessage(2, application); err != nil {
+		t.Fatal(err)
+	}
+	stored, err = s.GetMessages(2, 2)
+	if err != nil || len(stored) != 1 || !bytes.Equal(stored[0], application) {
+		t.Fatal("application replay bytes changed")
+	}
+}
+
+func TestStoreFailsClosedOnInvalidLogonMetadata(t *testing.T) {
+	missingTimestamp := framed("A")
+	missingTimestamp.Header.Remove(52)
+	for _, tc := range []struct {
+		name      string
+		data      []byte
+		increment bool
+	}{
+		{"malformed", []byte("not a FIX message"), false},
+		{"missing timestamp", missingTimestamp.Bytes(), true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, _ := testStore(t, 0)
+			var err error
+			if tc.increment {
+				err = s.SaveMessageAndIncrNextSenderMsgSeqNum(1, tc.data)
+			} else {
+				err = s.SaveMessage(1, tc.data)
+			}
+			if !errors.Is(err, retention.ErrStorage) || s.manager.Healthy() {
+				t.Fatal("invalid record did not fail closed")
+			}
+			if s.NextSenderMsgSeqNum() != 1 {
+				t.Fatal("failed write advanced sequence")
+			}
+		})
 	}
 }
 

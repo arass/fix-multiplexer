@@ -36,10 +36,47 @@ func (s *guardedStore) NextTargetMsgSeqNum() int {
 	return s.MessageStore.NextTargetMsgSeqNum()
 }
 func (s *guardedStore) SaveMessage(n int, b []byte) error {
-	return s.write(int64(len(b)+128), func() error { return s.MessageStore.SaveMessage(n, b) })
+	stored, err := s.storageBytes(b)
+	if err != nil {
+		return err
+	}
+	return s.write(int64(len(stored)+128), func() error { return s.MessageStore.SaveMessage(n, stored) })
 }
 func (s *guardedStore) SaveMessageAndIncrNextSenderMsgSeqNum(n int, b []byte) error {
-	return s.write(int64(len(b)+160), func() error { return s.MessageStore.SaveMessageAndIncrNextSenderMsgSeqNum(n, b) })
+	stored, err := s.storageBytes(b)
+	if err != nil {
+		return err
+	}
+	return s.write(int64(len(stored)+160), func() error { return s.MessageStore.SaveMessageAndIncrNextSenderMsgSeqNum(n, stored) })
+}
+
+// QuickFIX/Go gap-fills administrative messages during resend. Retain only
+// Logon framing and sequence metadata in its store; the original bytes still
+// go to the counterparty unchanged. Application replay bytes are untouched.
+func (s *guardedStore) storageBytes(b []byte) ([]byte, error) {
+	m := quickfix.NewMessage()
+	if err := quickfix.ParseMessage(m, bytes.NewBuffer(b)); err != nil {
+		s.manager.Fail()
+		return nil, retention.ErrStorage
+	}
+	typ, err := m.MsgType()
+	if err != nil {
+		s.manager.Fail()
+		return nil, retention.ErrStorage
+	}
+	if typ != "A" {
+		return b, nil
+	}
+	out := quickfix.NewMessage()
+	for _, tag := range []quickfix.Tag{8, 35, 34, 49, 56, 52} {
+		value, err := m.Header.GetBytes(tag)
+		if err != nil {
+			s.manager.Fail()
+			return nil, retention.ErrStorage
+		}
+		out.Header.SetBytes(tag, append([]byte(nil), value...))
+	}
+	return out.Bytes(), nil
 }
 func (s *guardedStore) IncrNextSenderMsgSeqNum() error {
 	return s.write(32, s.MessageStore.IncrNextSenderMsgSeqNum)

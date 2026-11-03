@@ -18,11 +18,12 @@ import (
 
 	"fix-multiplexer/internal/config"
 	"fix-multiplexer/internal/testfix"
+	"github.com/quickfixgo/quickfix"
 )
 
-// FIX engine stores the outbound Logon as well as application messages. This
-// synthetic regression documents why the durable store needs secret protection.
-func TestUpstreamLogonCredentialIsPersisted(t *testing.T) {
+// The venue still receives the original credential, while the durable store
+// keeps only the Logon metadata needed for the engine's resend gap fill.
+func TestUpstreamLogonCredentialIsNotPersisted(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	t.Setenv("FIX_TEST_SYNTHETIC_PASSWORD", "synthetic-review-credential")
@@ -42,7 +43,7 @@ func TestUpstreamLogonCredentialIsPersisted(t *testing.T) {
 	c.Upstream.Port, _ = strconv.Atoi(port)
 	c.Upstream.Password = config.Secret{Env: "FIX_TEST_SYNTHETIC_PASSWORD"}
 	venue := testfix.NewPeer()
-	vs, _, err := testfix.Settings(c.Upstream.Target, c.Upstream.Sender, venueListener.Addr().String(), c.Upstream.Dictionary, false)
+	vs, venueID, err := testfix.Settings(c.Upstream.Target, c.Upstream.Sender, venueListener.Addr().String(), c.Upstream.Dictionary, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,6 +62,11 @@ func TestUpstreamLogonCredentialIsPersisted(t *testing.T) {
 	}
 	defer r.Stop()
 	wait(t, ctx, venue.Logons)
+	logon := wait(t, ctx, venue.Admin)
+	password, reject := logon.Body.GetString(554)
+	if reject != nil || password != "synthetic-review-credential" {
+		t.Fatal("venue did not receive configured credential")
+	}
 	files, err := filepath.Glob(filepath.Join(c.Upstream.StoreDir, "*", "*.body"))
 	if err != nil || len(files) != 1 {
 		t.Fatal("upstream store not found")
@@ -69,8 +75,33 @@ func TestUpstreamLogonCredentialIsPersisted(t *testing.T) {
 	if err != nil {
 		t.Fatal("cannot read synthetic store")
 	}
-	if !bytes.Contains(data, []byte("synthetic-review-credential")) {
-		t.Fatal("expected synthetic logon credential in store")
+	if bytes.Contains(data, []byte("synthetic-review-credential")) {
+		t.Fatal("synthetic logon credential persisted in store")
+	}
+	// The venue models a missed initial Logon, then requests it. The engine
+	// should gap-fill the sanitized administrative record at the original seq.
+	if err = quickfix.SetNextTargetMsgSeqNum(venueID, 1); err != nil {
+		t.Fatal(err)
+	}
+	request := quickfix.NewMessage()
+	request.Header.SetString(35, "2")
+	request.Body.SetInt(7, 1)
+	request.Body.SetInt(16, 1)
+	if err = quickfix.SendToTarget(request, venueID); err != nil {
+		t.Fatal(err)
+	}
+	for {
+		received := wait(t, ctx, venue.Admin)
+		typ, _ := received.MsgType()
+		if typ != "4" {
+			continue
+		}
+		newSeq, e := received.Body.GetInt(36)
+		gap, g := received.Body.GetBool(123)
+		if e != nil || g != nil || !gap || newSeq != 2 {
+			t.Fatal("logon replay gap fill invalid")
+		}
+		break
 	}
 }
 
