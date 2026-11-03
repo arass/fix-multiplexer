@@ -26,7 +26,7 @@ This checkpoint records executed coverage, not a claim that every variant of eve
 | I06–I07 | Real downstream ResendRequest with replay flags; genuine missing upstream sequence recovered through engine resend, without routing outbound callbacks. |
 | I08 | Graceful persistent restart plus subprocess hard kill; conservative stale-lease recovery and increasing restored sequences. |
 | I09 | Real upstream disconnect, not-ready and gateway-identified standard FIX BusinessMessageReject. |
-| I10 | Unknown CompID, verified upstream hostname, and downstream mTLS success/failure; password mismatch is unit-tested. Additional combined authentication variants remain useful. |
+| I10 | Unknown CompID, verified upstream hostname, downstream mTLS success/failure, and configured-client password success/failure over both plaintext and TLS sockets. Additional combined authentication variants remain useful. |
 | I11 | Real oversize transport disconnect; connection count, byte limits, slow consumer and queue saturation tested with controlled transports/fakes. Sustained socket backpressure stress remains open. |
 | I12 | Defaults disable daily/logon/logout/disconnect resets; explicit offline reset and retirement enforced. Custom daily schedules are not exposed in v1. |
 | I13 | Go wire parser and all three peers verify groups/custom tags; independent QuickFIX/J 2.3.2 peers also passed groups/custom scalar and independent session identities. |

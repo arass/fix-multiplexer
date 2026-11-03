@@ -82,7 +82,7 @@ Go 1.23 or newer is required (development checks currently use 1.27.3). Run comm
 go run ./cmd/fix-multiplexer -demo
 ```
 
-On this Windows workspace, the verified local toolchain is `.tools/go/bin/go.exe`; it is not added to PATH. Linux race checks can run in the official Go container. The example listens on loopback; a non-loopback FIX listener requires TLS and per-client passwords. Management remains loopback-only. Unknown fields and unsupported FIX versions fail startup. Credential values belong in environment/file references. Defaults and the sample are validated by tests.
+On this Windows workspace, the verified local toolchain is `.tools/go/bin/go.exe`; it is not added to PATH. Linux race checks can run in the official Go container. The example listens on loopback; a non-loopback FIX listener requires per-client passwords. TLS is optional. Management remains loopback-only. Unknown fields and unsupported FIX versions fail startup. Credential values belong in environment/file references. Defaults and the sample are validated by tests.
 
 The `-demo` command starts a local mock venue, the gateway and three clients, verifies orders (including inbound PossDup), grouped fanout, live-only disconnection/reconnection behavior and a standard gateway error on upstream outage, then exits. It uses temporary session stores and synthetic data. No venue credentials are required. The same scenario runs in a nonroot, network-isolated container:
 
@@ -148,7 +148,9 @@ For downstream TLS, set `downstream.tls_enabled: true` and provide `downstream.t
 
 ### Allow developers to connect over a network
 
-To opt in, set `downstream.listen` to a literal IP address reachable by your developers, such as an address on your private network. A wildcard such as `0.0.0.0:9879` listens on all IPv4 interfaces. For any non-loopback listener, startup requires `downstream.tls_enabled: true`, a server certificate and key, and a password reference for **every enabled client**. Each client identifies its FIX session with its unique SenderCompID and sends its own password in Logon tag 554. These passwords are independent of the upstream counterparty username and password. An optional separate developer username in tag 553 is not currently validated.
+To opt in, set `downstream.listen` to a literal IP address reachable by your developers, such as an address on your private network. A wildcard such as `0.0.0.0:9879` listens on all IPv4 interfaces. For any non-loopback listener, startup requires a password reference for **every enabled client**. Each client identifies its FIX session with its unique SenderCompID and sends its own password in Logon tag 554. These passwords are independent of the upstream counterparty username and password. An optional separate developer username in tag 553 is not currently validated.
+
+TLS is optional. Without it, FIX passwords and messages travel unencrypted and can be observed or altered by anyone with access to the network path; use an encrypted VPN and restrict network access. To enable TLS, add the certificate and key shown below and configure clients to verify the certificate.
 
 ```yaml
 downstream:
@@ -166,7 +168,7 @@ downstream:
   store_dir: ./state/downstream
 ```
 
-This is a replacement for the `downstream` section of the copied config. Provide the referenced secrets and certificate files to the gateway; each client must verify the gateway certificate and use the matching SenderCompID, TargetCompID and password. If running in Docker, mount the configuration, certificates, secret references and durable state appropriately and publish only the intended FIX port. Docker networking, host firewalls and TLS certificate names must match the actual deployment; the management listener remains loopback-only.
+This is a TLS-enabled replacement for the `downstream` section of the copied config. Provide the referenced secrets and certificate files to the gateway; each client must verify the gateway certificate and use the matching SenderCompID, TargetCompID and password. For plaintext FIX over an encrypted VPN, omit `tls_enabled` and the `tls` section. If running in Docker, mount the configuration, any certificates, secret references and durable state appropriately and publish only the intended FIX port. Docker networking, host firewalls and TLS certificate names must match the actual deployment; the management listener remains loopback-only.
 
 Use a VPN or firewall to restrict access to trusted developers. The gateway does not yet provide per-IP login rate limiting, and its security review is incomplete; a TLS-enabled listener is not a public-internet security certification. All logged-on downstream clients receive allowed upstream broadcasts, including messages concerning other clients. The local upstream bridge authenticates its engine connection but remains subject to local denial-of-service attempts. See the [security review](docs/SECURITY_REVIEW.md).
 

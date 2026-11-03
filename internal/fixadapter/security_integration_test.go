@@ -189,12 +189,13 @@ func TestDownstreamLogonUsesSeparatePassword(t *testing.T) {
 	}
 }
 
-func TestNetworkListenerRequiresAuthenticatedTLSLogon(t *testing.T) {
+func TestNetworkListenerRequiresAuthenticatedLogon(t *testing.T) {
 	for _, tc := range []struct {
-		name, password string
-		accepted       bool
+		name, password   string
+		secure, accepted bool
 	}{
-		{"missing", "", false}, {"wrong", "synthetic-wrong", false}, {"valid", "synthetic-valid", true},
+		{"tls-missing", "", true, false}, {"tls-wrong", "synthetic-wrong", true, false}, {"tls-valid", "synthetic-valid", true, true},
+		{"plaintext-missing", "", false, false}, {"plaintext-wrong", "synthetic-wrong", false, false}, {"plaintext-valid", "synthetic-valid", false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -215,8 +216,10 @@ func TestNetworkListenerRequiresAuthenticatedTLSLogon(t *testing.T) {
 			c := runtimeConfig(t)
 			_, listenPort, _ := net.SplitHostPort(l.Addr().String())
 			c.Downstream.Listen = net.JoinHostPort("0.0.0.0", listenPort)
-			c.Downstream.TLSEnabled = true
-			c.Downstream.TLS = config.TLS{CertFile: cert, KeyFile: key}
+			c.Downstream.TLSEnabled = tc.secure
+			if tc.secure {
+				c.Downstream.TLS = config.TLS{CertFile: cert, KeyFile: key}
+			}
 			c.Downstream.Clients[0].Password.Env = "FIX_TEST_REMOTE_PASSWORD"
 			_, port, _ := net.SplitHostPort(upstream.Addr().String())
 			c.Upstream.Port, _ = strconv.Atoi(port)
@@ -224,12 +227,17 @@ func TestNetworkListenerRequiresAuthenticatedTLSLogon(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			r.SetListenerFactory(func(_ string, secure *tls.Config) (net.Listener, error) { return tls.NewListener(l, secure), nil })
+			r.SetListenerFactory(func(_ string, secure *tls.Config) (net.Listener, error) {
+				if secure != nil {
+					return tls.NewListener(l, secure), nil
+				}
+				return l, nil
+			})
 			if err = r.Start(); err != nil {
 				t.Fatal(err)
 			}
 			defer r.Stop()
-			if tc.accepted {
+			if tc.accepted && tc.secure {
 				plain, err := net.Dial("tcp", net.JoinHostPort("127.0.0.1", listenPort))
 				if err != nil {
 					t.Fatal(err)
@@ -254,7 +262,12 @@ func TestNetworkListenerRequiresAuthenticatedTLSLogon(t *testing.T) {
 			if !roots.AppendCertsFromPEM(pemBytes) {
 				t.Fatal("invalid synthetic root")
 			}
-			conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 5 * time.Second}, "tcp", net.JoinHostPort("127.0.0.1", listenPort), &tls.Config{RootCAs: roots, ServerName: "mock.test", MinVersion: tls.VersionTLS12})
+			var conn net.Conn
+			if tc.secure {
+				conn, err = tls.DialWithDialer(&net.Dialer{Timeout: 5 * time.Second}, "tcp", net.JoinHostPort("127.0.0.1", listenPort), &tls.Config{RootCAs: roots, ServerName: "mock.test", MinVersion: tls.VersionTLS12})
+			} else {
+				conn, err = net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", listenPort), 5*time.Second)
+			}
 			if err != nil {
 				t.Fatal(err)
 			}

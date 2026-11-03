@@ -44,7 +44,7 @@ func TestClientCountLimit(t *testing.T) {
 	}
 }
 
-func TestRemoteListenerRequiresTLSAndClientPasswords(t *testing.T) {
+func TestRemoteListenerRequiresClientPasswords(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		address   string
@@ -54,7 +54,8 @@ func TestRemoteListenerRequiresTLSAndClientPasswords(t *testing.T) {
 	}{
 		{"loopback", "127.0.0.1:9879", false, false, true},
 		{"ipv6-loopback", "[::1]:9879", false, false, true},
-		{"remote-plaintext", "0.0.0.0:9879", false, true, false},
+		{"remote-plaintext", "0.0.0.0:9879", false, true, true},
+		{"remote-plaintext-missing-passwords", "0.0.0.0:9879", false, false, false},
 		{"remote-missing-passwords", "0.0.0.0:9879", true, false, false},
 		{"remote-protected", "0.0.0.0:9879", true, true, true},
 		{"ipv6-protected", "[::]:9879", true, true, true},

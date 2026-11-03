@@ -187,9 +187,6 @@ func (c Config) Validate() error {
 		return invalid("downstream.listen must be a literal IP address and port")
 	}
 	remote := !loopbackAddress(c.Downstream.Listen)
-	if remote && !c.Downstream.TLSEnabled {
-		return invalid("non-loopback downstream listener requires TLS")
-	}
 	if c.Downstream.Listen == c.Service.HealthBind {
 		return invalid("FIX and management listener addresses must differ")
 	}

@@ -28,9 +28,10 @@ upstream:
 # The gateway accepts one separate session per allowlisted client.
 downstream:
   fix_version: FIX.4.4
-  listen: 127.0.0.1:9879 # local by default; network addresses require TLS and client passwords
+  listen: 127.0.0.1:9879 # local by default; network addresses require client passwords
   target_comp_id: MULTIPLEXER # each client's TargetCompID
-  # To accept network connections, enable TLS and provide your certificate and key.
+  # Optional TLS: enable it and provide your certificate and private key.
+  # Without TLS, FIX passwords and messages travel unencrypted; use a VPN.
   # tls_enabled: true
   # tls:
   #   cert_file: /path/to/gateway-cert.pem
