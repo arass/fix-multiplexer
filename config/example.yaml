@@ -28,7 +28,7 @@ upstream:
 # The gateway accepts one separate session per allowlisted client.
 downstream:
   fix_version: FIX.4.4
-  listen: 127.0.0.1:9879 # literal loopback address only
+  listen: 127.0.0.1:9879 # local by default; network addresses require TLS and client passwords
   target_comp_id: MULTIPLEXER # each client's TargetCompID
   # Each client must use its own SenderCompID. Up to 128 entries are supported.
   # An allowlisted CompID alone is not a password; configure authentication as needed.

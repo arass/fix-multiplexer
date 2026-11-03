@@ -120,7 +120,7 @@ Progress: independent QuickFIX/J 2.3.2 peers passed groups/custom fields, admin 
 
 Security review is in progress after the owner-requested local tag `security-review-baseline` at 67f1284. The upstream bridge now authenticates its engine connection. See docs/SECURITY_REVIEW.md for residual local denial-of-service exposure, plaintext logon credentials in durable stores, vulnerability scan results and remaining review work. Do not treat the implementation milestone as security approval.
 
-The owner also requires developer clients to connect over a network using credentials distinct from the exchange session. The current loopback-only listener does not satisfy remote connections. Network scope and whether a separate FIX username is needed are awaiting clarification; design and test the authentication and transport before exposing a listener.
+The owner also requires developer clients to connect over a network using credentials distinct from the exchange session. Non-loopback FIX listeners now require TLS and a password for every enabled client; each session is identified by SenderCompID. Management remains loopback-only and the default example remains local. Public network scope and whether a separate FIX username is needed are awaiting clarification; access controls, rate limiting and a broader security review remain open.
 
 1. Local automated end-to-end test: 3 distinct downstream FIX initiators successfully log on and send orders through **one** upstream FIX initiator. Mock upstream sees correct business tags and one session.
 2. One mock upstream execution report is delivered to all 3 active downstream clients, with correct **independent** target session headers and sequence numbers, unchanged business IDs.

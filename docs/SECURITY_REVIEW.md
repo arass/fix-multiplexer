@@ -2,7 +2,9 @@
 
 Review started 2026-11-02 against local tag `security-review-baseline` (commit 67f1284). This is a working review, not an independent audit or a production approval.
 
-The owner clarified that developers need to connect over a network and their FIX Logon credentials may differ from the exchange credentials. The current downstream listener is loopback-only and does not yet satisfy remote access. Upstream credentials and per-client downstream passwords are configured independently. `TestDownstreamLogonUsesSeparatePassword` verifies over local FIX sockets that a missing password and the upstream password are rejected, while the configured client password is accepted. Network exposure, TLS, and whether client identity is SenderCompID or a separate FIX username require a security design and end-to-end tests before remote binding is enabled. The intended network and identity details are pending owner clarification.
+The owner clarified that developers need to connect over a network and their FIX Logon credentials may differ from the exchange credentials. Non-loopback downstream FIX listeners now require TLS and a password reference for every enabled client; upstream credentials and per-client downstream passwords are configured independently. `TestDownstreamLogonUsesSeparatePassword` verifies over local FIX sockets that a missing password and the upstream password are rejected, while the configured client password is accepted. `TestNetworkListenerRequiresAuthenticatedTLSLogon` verifies password outcomes over TLS using a loopback test listener and non-loopback configuration; it does not test connectivity across hosts or firewalls. Management remains loopback-only. The intended network and whether a separate FIX username should be verified remain pending owner clarification.
+
+There is currently no per-IP authentication rate limit or lockout. The transport connection cap and deadlines bound concurrent connections, but do not prevent repeated password attempts or deliberate denial of service. Use network restrictions such as a VPN or firewall for a pilot, strong distinct client passwords, and monitored access; do not treat this as public-internet security certification. Additional adversarial tests and security review remain required.
 
 ## Fixed: upstream bridge accepted unauthenticated local processes
 
@@ -38,6 +40,6 @@ Session metadata was read entirely into memory before its 4 KiB size check. A lo
 - Design and validate a safe mitigation for confirmed upstream logon credential persistence, including existing-store handling.
 - Review authentication, authorization, TLS, health endpoints, filesystem race/symlink handling, resource-exhaustion paths, logging and error redaction.
 - Test cross-identity mTLS attempts and assess per-client certificate identity binding and duplicate-session exhaustion.
-- Design authenticated, encrypted remote downstream access after confirming network exposure and client identity requirements; keep management and default listener exposure constrained.
+- Confirm network exposure and whether separate FIX usernames are required; assess rate limiting, remote deployments and adversarial authentication tests before broader exposure.
 - Reassess the Go minimum and later dependency upgrades; scan container/Java dependencies where tooling is available.
 - Record verified findings, fixes, tests and residual limitations; update task documents and commit each completed step locally.

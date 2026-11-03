@@ -1,6 +1,8 @@
 # Local development operations
 
-The gateway is a nonproduction tool for mutually trusted participants. Listeners currently require loopback. All configured clients see upstream application broadcasts. Local engine acceptance is not venue acceptance, and no exactly-once guarantee is made.
+The gateway is a nonproduction tool for mutually trusted participants. The management listener requires loopback. A non-loopback downstream FIX listener requires TLS and a password for every enabled client; the example remains loopback-only. All configured clients see upstream application broadcasts. Local engine acceptance is not venue acceptance, and no exactly-once guarantee is made.
+
+For network access use a VPN or firewall restricted to trusted developers, and provision a server certificate clients verify plus a distinct strong FIX Logon password per client. SenderCompID identifies the session; tag 554 is checked against that client's password. A separate tag 553 is not currently checked. No per-IP authentication rate limiting is implemented, and security review is incomplete. Docker port publication and the listener bind address must both be configured for the intended network; keep management private.
 
 ## Start and verify
 

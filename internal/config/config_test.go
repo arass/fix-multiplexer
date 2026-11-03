@@ -44,6 +44,56 @@ func TestClientCountLimit(t *testing.T) {
 	}
 }
 
+func TestRemoteListenerRequiresTLSAndClientPasswords(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		address   string
+		tls       bool
+		passwords bool
+		valid     bool
+	}{
+		{"loopback", "127.0.0.1:9879", false, false, true},
+		{"ipv6-loopback", "[::1]:9879", false, false, true},
+		{"remote-plaintext", "0.0.0.0:9879", false, true, false},
+		{"remote-missing-passwords", "0.0.0.0:9879", true, false, false},
+		{"remote-protected", "0.0.0.0:9879", true, true, true},
+		{"ipv6-protected", "[::]:9879", true, true, true},
+		{"hostname", "localhost:9879", true, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := sample(t)
+			c.Downstream.Listen = tc.address
+			c.Downstream.TLSEnabled = tc.tls
+			if tc.tls {
+				c.Downstream.TLS.CertFile, c.Downstream.TLS.KeyFile = "cert", "key"
+			}
+			if tc.passwords {
+				for i := range c.Downstream.Clients {
+					c.Downstream.Clients[i].Password.Env = fmt.Sprintf("CLIENT_%d_PASSWORD", i)
+				}
+			}
+			if (c.Validate() == nil) != tc.valid {
+				t.Fatal("unexpected validation outcome")
+			}
+		})
+	}
+	c := sample(t)
+	c.Downstream.Listen, c.Downstream.TLSEnabled = "0.0.0.0:9879", true
+	c.Downstream.TLS.CertFile, c.Downstream.TLS.KeyFile = "cert", "key"
+	for i := range c.Downstream.Clients {
+		c.Downstream.Clients[i].Disabled = true
+	}
+	c.Downstream.Clients[0].Disabled = false
+	c.Downstream.Clients[0].Password.Env = "CLIENT_PASSWORD"
+	if err := c.Validate(); err != nil {
+		t.Fatal("disabled clients should not require passwords", err)
+	}
+	c.Downstream.Clients[1].Disabled = false
+	if c.Validate() == nil {
+		t.Fatal("enabled client without password accepted")
+	}
+}
+
 func TestValidation(t *testing.T) {
 	tests := []struct {
 		name   string

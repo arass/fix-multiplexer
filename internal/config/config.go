@@ -183,8 +183,12 @@ func (c Config) Validate() error {
 	if !identifier.MatchString(c.Upstream.Sender) || !identifier.MatchString(c.Upstream.Target) || c.Upstream.Sender == c.Upstream.Target {
 		return invalid("upstream CompIDs must be distinct safe identifiers")
 	}
-	if !loopbackAddress(c.Downstream.Listen) {
-		return invalid("downstream.listen must be a loopback host:port in v1")
+	if !ipAddress(c.Downstream.Listen) {
+		return invalid("downstream.listen must be a literal IP address and port")
+	}
+	remote := !loopbackAddress(c.Downstream.Listen)
+	if remote && !c.Downstream.TLSEnabled {
+		return invalid("non-loopback downstream listener requires TLS")
 	}
 	if c.Downstream.Listen == c.Service.HealthBind {
 		return invalid("FIX and management listener addresses must differ")
@@ -203,6 +207,9 @@ func (c Config) Validate() error {
 		seen[cl.Sender] = true
 		if err := validSecret(cl.Password); err != nil {
 			return invalid("downstream client password reference")
+		}
+		if remote && !cl.Disabled && cl.Password.Env == "" && cl.Password.File == "" {
+			return invalid("non-loopback downstream listener requires a password for each enabled client")
 		}
 		if c.Downstream.Target == c.Upstream.Sender && cl.Sender == c.Upstream.Target {
 			return invalid("upstream and downstream SessionIDs overlap")
@@ -261,14 +268,22 @@ func (c Config) Validate() error {
 	return nil
 }
 
-func loopbackAddress(address string) bool {
+func ipAddress(address string) bool {
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
 		return false
 	}
 	ip := net.ParseIP(host)
 	n, err := strconv.Atoi(port)
-	return ip != nil && ip.IsLoopback() && err == nil && n > 0 && n <= 65535
+	return ip != nil && err == nil && n > 0 && n <= 65535
+}
+
+func loopbackAddress(address string) bool {
+	if !ipAddress(address) {
+		return false
+	}
+	host, _, _ := net.SplitHostPort(address)
+	return net.ParseIP(host).IsLoopback()
 }
 
 func validSecret(s Secret) error {
