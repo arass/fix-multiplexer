@@ -28,6 +28,8 @@ Security review is in progress. The owner requested local tag `security-review-b
 
 Security review confirmed with a synthetic local integration test that the upstream file store persists outgoing Logon credentials in plaintext. Store protection and safe mitigation remain open, alongside the local bridge issue. No customer data or real credentials were used.
 
+Security review also bounded session-metadata reads before allocation; oversized markers are rejected during startup and maintenance. Native fmt, vet, unit tests and core coverage gate passed. Remote developer FIX access with credentials separate from the upstream session is newly required but not implemented: listeners remain loopback-only while network scope, identity and secure transport are clarified. See SECURITY_REVIEW.md.
+
 README setup guidance now covers configuring an upstream counterparty, client CompIDs, credentials/TLS, readiness and recovery, including the open local bridge risk and loopback-only listener constraint. The example YAML comments were updated; its configuration validation passed. Security review tasks remain open in SECURITY_REVIEW.md.
 
 Milestone 1a checks: native go fmt, go vet ./..., go test ./..., coverage and CLI sample validation passed. Config statement coverage: 99.1%. Linux go test -race ./... passed. Actual Dockerfile built and application container -check-config passed. CLI coverage is not included in the core target. Added CI and Docker packaging. Socket integration coverage remains pending.

@@ -2,6 +2,7 @@ package retention
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -125,6 +126,44 @@ func TestOfflineInventoryIsReadOnlyAndCorruptionVisible(t *testing.T) {
 	}
 	if _, err = m.LoadExisting("c", root); err == nil {
 		t.Fatal("closed inventory")
+	}
+}
+
+func TestOversizeMetadataRejected(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "marker.json")
+	if err := os.WriteFile(path, make([]byte, 8192), 0600); err != nil {
+		t.Fatal(err)
+	}
+	data, err := readMetadata(path)
+	if err != nil || len(data) != 4097 {
+		t.Fatal("metadata read was not bounded", err)
+	}
+	for _, maintenance := range []bool{false, true} {
+		t.Run(fmt.Sprint(maintenance), func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.WriteFile(filepath.Join(root, key("client")+".json"), make([]byte, 5000), 0600); err != nil {
+				t.Fatal(err)
+			}
+			var m *Manager
+			var err error
+			if maintenance {
+				m, err = OpenMaintenance([]string{root}, 100000, 10000, time.Now)
+			} else {
+				m, err = Open([]string{root}, 100000, 10000, time.Now)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer m.Close()
+			if maintenance {
+				_, err = m.LoadExisting("client", root)
+			} else {
+				_, err = m.Register("client", root)
+			}
+			if err == nil {
+				t.Fatal("oversized metadata accepted")
+			}
+		})
 	}
 }
 

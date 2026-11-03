@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -124,7 +125,7 @@ func (m *Manager) Register(id, root string) (string, error) {
 	}
 	e := &entry{root: abs, path: filepath.Join(abs, key(id)), state: State{LastDisconnect: m.now()}}
 	meta := filepath.Join(abs, key(id)+".json")
-	data, err := os.ReadFile(meta)
+	data, err := readMetadata(meta)
 	if err == nil {
 		if len(data) > 4096 || json.Unmarshal(data, &e.state) != nil {
 			return "", ErrStorage
@@ -324,7 +325,7 @@ func (m *Manager) LoadExisting(id, root string) (bool, error) {
 	if !owned {
 		return false, ErrStorage
 	}
-	data, err := os.ReadFile(filepath.Join(abs, key(id)+".json"))
+	data, err := readMetadata(filepath.Join(abs, key(id)+".json"))
 	if os.IsNotExist(err) {
 		return false, nil
 	}
@@ -337,6 +338,21 @@ func (m *Manager) LoadExisting(id, root string) (bool, error) {
 	}
 	m.entries[id] = e
 	return true, nil
+}
+
+// Metadata is untrusted on disk. Limit the read before allocating so an
+// oversized or concurrently growing marker cannot exhaust process memory.
+func readMetadata(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		return nil, ErrStorage
+	}
+	return io.ReadAll(io.LimitReader(f, 4097))
 }
 func (m *Manager) State(id string) (State, bool) {
 	m.mu.Lock()
