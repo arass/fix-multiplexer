@@ -13,7 +13,7 @@ The unmodified linked runtime dependencies and their upstream license texts are:
 | pkg/errors | v0.9.1 | [BSD 2-Clause](third_party/PKG_ERRORS_LICENSE) |
 | udecimal | v1.8.0 | [BSD 3-Clause](third_party/UDECIMAL_LICENSE) |
 | shopspring/decimal | v1.4.0 | [MIT](third_party/DECIMAL_LICENSE) |
-| golang.org/x/net | v0.24.0 | [BSD 3-Clause](third_party/X_NET_LICENSE) |
+| golang.org/x/net | v0.43.0 | [BSD 3-Clause](third_party/X_NET_LICENSE) |
 | gopkg.in/yaml.v3 | v3.0.1 | [MIT/Apache terms by file](third_party/YAML_LICENSE) |
 | Go runtime/standard library | 1.27.3 (verified build) | [BSD 3-Clause](third_party/GO_LICENSE) |
 

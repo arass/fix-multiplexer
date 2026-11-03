@@ -3,7 +3,7 @@
   "project": "fix-multiplexer",
   "project_license": "undecided",
   "go_version": "go1.27.3",
-  "binary_sha256": "fe62c41feaf252bfc2971ecf0cb35cad2780a4efa6f906da159aaf758ca5c459",
+  "binary_sha256": "d378803bd075b0dfa3fbc0564a3686fb035818e63c98d11c6e4c2ad9268f438c",
   "platform": {
     "CGO_ENABLED": "0",
     "GOARCH": "amd64",
@@ -37,8 +37,8 @@
     },
     {
       "path": "golang.org/x/net",
-      "version": "v0.24.0",
-      "checksum": "h1:1PcaxkF854Fu3+lvBIx5SYn9wRlBzzcnHZSiaFFAb0w="
+      "version": "v0.43.0",
+      "checksum": "h1:lat02VYK2j4aLzMzecihNvTlJNQUq316m2Mr9rnM6YE="
     },
     {
       "path": "gopkg.in/yaml.v3",

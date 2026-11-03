@@ -26,7 +26,7 @@ Code inspection shows that downstream mTLS verifies that a certificate is truste
 
 ## Dependency scan
 
-On 2026-11-02, `govulncheck v1.1.4 ./...` using Go 1.27.3 reported zero reachable vulnerable symbols. It also reported one vulnerability in an imported package and 19 in required modules whose vulnerable symbols were not found reachable. The imported-package result is [GO-2025-3503](https://pkg.go.dev/vuln/GO-2025-3503), affecting `golang.org/x/net v0.24.0` and fixed in v0.36.0; assess dependency updates and re-run the scan rather than interpreting an unreachable result as proof of safety. The scan covers the Go source and database state at that time, not the Java fixture or container OS packages.
+On 2026-11-02, `govulncheck v1.1.4 ./...` using Go 1.27.3 initially reported zero reachable vulnerable symbols, one vulnerability in an imported package and 19 in required modules whose vulnerable symbols were not found reachable. The imported-package result was [GO-2025-3503](https://pkg.go.dev/vuln/GO-2025-3503), affecting `golang.org/x/net v0.24.0`. The dependency was updated to v0.43.0, which retains the project's Go 1.23 minimum. A repeat scan reported zero reachable or imported-package vulnerabilities and 17 module-level advisories whose vulnerable symbols were not found reachable. Later x/net fixes require a newer Go minimum; reassess the tradeoff when updating the toolchain. A scan is not proof of safety and covers only Go source and the database state at that time, not the Java fixture or container OS packages.
 
 ## Fixed: bounded metadata reads
 
@@ -39,5 +39,5 @@ Session metadata was read entirely into memory before its 4 KiB size check. A lo
 - Review authentication, authorization, TLS, health endpoints, filesystem race/symlink handling, resource-exhaustion paths, logging and error redaction.
 - Test cross-identity mTLS attempts and assess per-client certificate identity binding and duplicate-session exhaustion.
 - Design authenticated, encrypted remote downstream access after confirming network exposure and client identity requirements; keep management and default listener exposure constrained.
-- Assess dependency upgrades and scan container/Java dependencies where tooling is available.
+- Reassess the Go minimum and later dependency upgrades; scan container/Java dependencies where tooling is available.
 - Record verified findings, fixes, tests and residual limitations; update task documents and commit each completed step locally.

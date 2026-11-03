@@ -13,5 +13,5 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/quagmt/udecimal v1.8.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	golang.org/x/net v0.24.0 // indirect
+	golang.org/x/net v0.43.0 // indirect
 )
