@@ -55,6 +55,8 @@ downstream:
   clients:
     - sender_comp_id: DEV_A
       # password: {env: FIX_DEV_A_PASSWORD}
+    - sender_comp_id: DEV_B
+      # password: {env: FIX_DEV_B_PASSWORD}
     - sender_comp_id: DROP_COPY
       read_only: true
       receive_message_types: ["8", "9"]

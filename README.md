@@ -135,7 +135,7 @@ The gateway initiates **one** FIX 4.4 session to your counterparty and accepts s
    ```
 
    Validation checks the configuration schema and constraints; it does not prove credentials, certificates, connectivity, or a successful FIX logon. The daemon loads credentials, dictionaries and certificates when starting.
-6. Configure each client's FIX initiator to connect to the configured `downstream.listen`. With the supplied example, client `DEV_A` connects to `127.0.0.1:9879` with `BeginString=FIX.4.4`, `SenderCompID=DEV_A`, and `TargetCompID=MULTIPLEXER`. The gateway presents the inverse identity on that session. Configure `DROP_COPY` and `QA_1` with their own sender IDs; `DROP_COPY` is read-only. Do not reuse one session identity for multiple simultaneous clients. Coordinate sequence numbers instead of enabling automatic resets.
+6. Configure each client's FIX initiator to connect to the configured `downstream.listen`. With the supplied example, client `DEV_A` connects to `127.0.0.1:9879` with `BeginString=FIX.4.4`, `SenderCompID=DEV_A`, and `TargetCompID=MULTIPLEXER`. The gateway presents the inverse identity on that session. Configure `DEV_B`, `DROP_COPY` and `QA_1` with their own sender IDs; `DROP_COPY` is read-only. Do not reuse one session identity for multiple simultaneous clients. Coordinate sequence numbers instead of enabling automatic resets.
 7. In another terminal, check the upstream session and store health:
 
    ```sh

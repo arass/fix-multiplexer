@@ -2,7 +2,7 @@
 
 ## Current state
 
-The owner consolidated the mixed-client subscriber example into `config/example.yaml`; it includes a read-only `DROP_COPY` client and writable developer clients. The separate example was removed. Configuration validation and `go test ./...` pass with the consolidated example.
+The owner consolidated the mixed-client subscriber example into `config/example.yaml`; it includes a read-only `DROP_COPY` client alongside the original writable `DEV_A`, `DEV_B` and `QA_1` examples. The separate example was removed. Configuration validation and `go test ./...` pass with the consolidated example.
 
 Documentation audit: architecture, operations, Docker setup, README and test guides now describe the current per-client filters, message-copy limits, maintenance and test commands. The milestone entries below are historical records; their then-pending items are not necessarily current. See `TEST_STATUS.md` and the subscriber task for remaining test variants.
 

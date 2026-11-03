@@ -33,10 +33,10 @@ func TestSample(t *testing.T) {
 
 func TestExampleMixedClients(t *testing.T) {
 	c := sample(t)
-	if len(c.Downstream.Clients) != 3 || c.Downstream.Clients[0].ReadOnly || !c.Downstream.Clients[1].ReadOnly || c.Downstream.Clients[2].ReadOnly {
+	if len(c.Downstream.Clients) != 4 || c.Downstream.Clients[0].ReadOnly || c.Downstream.Clients[1].ReadOnly || !c.Downstream.Clients[2].ReadOnly || c.Downstream.Clients[3].ReadOnly {
 		t.Fatal("example does not contain the expected writable and read-only clients")
 	}
-	client := c.Downstream.Clients[1]
+	client := c.Downstream.Clients[2]
 	if client.Sender != "DROP_COPY" || len(client.ReceiveMessageTypes) != 2 || client.ReceiveMessageTypes[0] != "8" || client.ReceiveMessageTypes[1] != "9" {
 		t.Fatal("example subscriber does not have the expected receive policy")
 	}
