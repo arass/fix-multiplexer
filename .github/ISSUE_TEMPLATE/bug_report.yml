@@ -1,0 +1,20 @@
+name: Bug report
+description: Report a reproducible problem without confidential data.
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce and sanitized configuration
+      description: Remove credentials, private endpoints, customer data and FIX message content.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Project version, FIX version, OS and deployment method

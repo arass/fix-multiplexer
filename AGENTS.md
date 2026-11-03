@@ -11,7 +11,7 @@ Read `CODEX_TASK.md`, `docs/ARCHITECTURE.md`, `docs/TEST_PLAN.md`, and `README.m
 5. **Never silently drop outbound orders when upstream is unavailable or forwarding fails.** Return an explicit protocol-appropriate or operational error; test the chosen behavior. Avoid falsely signaling order acceptance or guaranteeing exactly-once delivery.
 6. **No production promises.** This is a UAT/development tool. Fail closed on unknown clients, invalid configuration, unacceptable resource consumption and incompatible FIX versions.
 7. **Secrets and PII.** No real customer data, upstream credentials, private keys, or unredacted message content in tests, examples, issues, or CI logs. Redact FIX credential tags and support metadata-only logging by default.
-8. **Don't modify or depend on the author's existing previously certified API project.** It may be used for independent compatibility testing only if its owner explicitly provides it and license rights permit.
+8. **Don't modify or depend on any private counterparty-specific project.** It may be used for independent compatibility testing only if its owner explicitly provides it and license rights permit.
 9. **Minimize hidden global state.** Use dependency injection for FIX session sender, session registry, clock, durable store, config, and shutdown hooks. Prefer deterministic tests.
 10. **Keep the project generic.** No vendor-specific CompIDs, endpoints, business tags, credential rules, or integrations hardcoded into the main package.
 

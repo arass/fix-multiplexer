@@ -47,7 +47,7 @@ func main() {
 		SHA256         string            `json:"binary_sha256"`
 		Platform       map[string]string `json:"platform"`
 		Modules        []module          `json:"modules"`
-	}{Format: "Go linked-module inventory v1", Project: "fix-multiplexer", ProjectLicense: "undecided", GoVersion: info.GoVersion, SHA256: hex.EncodeToString(hash.Sum(nil)), Platform: make(map[string]string)}
+	}{Format: "Go linked-module inventory v1", Project: "fix-multiplexer", ProjectLicense: "Apache-2.0", GoVersion: info.GoVersion, SHA256: hex.EncodeToString(hash.Sum(nil)), Platform: make(map[string]string)}
 	for _, s := range info.Settings {
 		if s.Key == "GOOS" || s.Key == "GOARCH" || s.Key == "CGO_ENABLED" {
 			result.Platform[s.Key] = s.Value

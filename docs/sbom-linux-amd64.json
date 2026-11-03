@@ -1,9 +1,9 @@
 {
   "format": "Go linked-module inventory v1",
   "project": "fix-multiplexer",
-  "project_license": "undecided",
+  "project_license": "Apache-2.0",
   "go_version": "go1.27.3",
-  "binary_sha256": "37638975d97547886f407535d7bfea363f36abb99bddd3a0b85b30262d017254",
+  "binary_sha256": "5235f64bc14f111e317f18740930f697d8a4345af2c2312730eb1dd6dc298e92",
   "platform": {
     "CGO_ENABLED": "0",
     "GOARCH": "amd64",

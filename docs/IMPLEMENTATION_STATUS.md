@@ -2,6 +2,8 @@
 
 ## Current state
 
+The owner confirmed first-party ownership and selected Apache 2.0. Local release materials are prepared; current publication blockers and remaining checks are in `docs/PUBLIC_RELEASE_CHECKLIST.md`. Docker runtime demo, configuration validation, full Docker test target and coverage gate passed; a later Compose build lost the daemon connection, leaving the latest Compose demo and cleanup unverified. Do not publish or push a release without separate authorization.
+
 The owner consolidated the mixed-client subscriber example into `config/example.yaml`; it includes a read-only `DROP_COPY` client alongside the original writable `DEV_A`, `DEV_B` and `QA_1` examples. The separate example was removed. Configuration validation and `go test ./...` pass with the consolidated example.
 
 Documentation audit: architecture, operations, Docker setup, README and test guides now describe the current per-client filters, message-copy limits, maintenance and test commands. The milestone entries below are historical records; their then-pending items are not necessarily current. See `TEST_STATUS.md` and the subscriber task for remaining test variants.
@@ -10,7 +12,7 @@ Per-client read-only and receive filtering has an implementation checkpoint. Rea
 
 The Docker test target passed formatting, vet, short tests, the coverage gate (config 100%, gateway 97.3%, fixadapter 90.4%, sessions 100%, retention 92.6%), full race-enabled integration and routing soak. The final extended recovery and multi-character socket tests also passed separately under the race detector. The focused socket tests passed repeatedly on Windows; `go test ./...` passed.
 
-Phases 1–5 have working implementations and local regression evidence. Independent-engine interoperability, extended socket soak, linked-module/license inventory and clean-checkout demo reproduction passed. The gateway, durable recovery, offline retention, bounded transport, TLS/mTLS, metadata logging, health and metrics are implemented. Owner explicitly chose to keep project licensing undecided; no LICENSE, publication or release tag should be added. User decisions in CODEX_TASK.md take precedence over earlier suggestions.
+Phases 1–5 have working implementations and local regression evidence. Independent-engine interoperability, extended socket soak, linked-module/license inventory and clean-checkout demo reproduction passed. The gateway, durable recovery, offline retention, bounded transport, TLS/mTLS, metadata logging, health and metrics are implemented. The owner subsequently chose Apache 2.0; publication and release tags still require separate authorization. User decisions in CODEX_TASK.md take precedence over earlier suggestions.
 
 ## Completed
 
@@ -32,7 +34,7 @@ Phases 1–5 have working implementations and local regression evidence. Indepen
 
 ## Next action
 
-Security review is in progress. The owner requested local tag `security-review-baseline` at 72dd075 to separate review changes. The upstream bridge now authenticates its local engine connection with a process-specific ephemeral TLS identity, verified by unauthorized-peer, recovery, TLS, race, interoperability and smoke tests. See docs/SECURITY_REVIEW.md for residual risks and remaining review tasks. Review docs/TEST_STATUS.md for unexecuted stress variants. Public release and a project license require new owner direction. Phase 4 fixed an important store isolation regression: engine SessionSettings() returns copies, so paths must be set before AddSession. Real filesystem tests verify engine body files are inside per-session hash directories and history is removed only by offline retirement. Legacy root-level engine files block startup rather than silently resetting state. No engine modifications.
+Security review is in progress. The owner requested local tag `security-review-baseline` at 72dd075 to separate review changes. The upstream bridge now authenticates its local engine connection with a process-specific ephemeral TLS identity, verified by unauthorized-peer, recovery, TLS, race, interoperability and smoke tests. See docs/SECURITY_REVIEW.md for residual risks and remaining review tasks. Review docs/TEST_STATUS.md for unexecuted stress variants. The owner chose Apache 2.0; public release requires separate authorization. Phase 4 fixed an important store isolation regression: engine SessionSettings() returns copies, so paths must be set before AddSession. Real filesystem tests verify engine body files are inside per-session hash directories and history is removed only by offline retirement. Legacy root-level engine files block startup rather than silently resetting state. No engine modifications.
 
 Upstream session Rejects now generate gateway BusinessMessageReject diagnostic notices for live clients, independently of ordinary message filters; upstream sequence numbers appear only as labeled text. A two-client real FIX socket test covers policy bypass, fields and downstream acceptance. The example lists both default application type policies and describes optional Quote Cancel (`Z`). Native formatting, vet, unit tests and core coverage gate, Linux race-enabled integration and container smoke passed; binary inventory was refreshed. Delivery is subject to existing live-only and bounded-queue limits; see README.
 
@@ -72,7 +74,7 @@ Milestone 1b: native unit tests, vet and real-socket integration passed. Linux r
 2. Implemented: Phase 2 field fidelity, routing/fanout, gateway errors and replay policy.
 3. Implemented: Phase 3 durable recovery, retirement and replay windows; store isolation regression corrected in Phase 4.
 4. Implemented: Phase 4 primary hardening and core soak; extended socket stress variants remain for final audit.
-5. Implemented and locally verified: independent-engine interoperability, extended socket soak, linked-module/license inventory and clean-checkout Compose demo. CI jobs configured, not remotely executed. Owner has deferred licensing, so no public release/tag.
+5. Implemented and locally verified: independent-engine interoperability, extended socket soak, linked-module/license inventory and clean-checkout Compose demo. CI jobs configured, not remotely executed. At that milestone licensing was deferred; Apache 2.0 was selected later, while publication and release tags still require authorization.
 
 For every completed implementation step: update this file and affected task documents, run applicable checks, record outcomes, then commit locally. Do not claim checks passed without execution. Do not include unrelated IDE files in commits.
 

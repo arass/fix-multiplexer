@@ -4,4 +4,7 @@
 .tools
 .gocache
 state
+config/local.yaml
 coverage.out
+*.tar
+docs/CODEX_PUBLIC_RELEASE_ITBS.md

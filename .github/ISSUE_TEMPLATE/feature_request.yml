@@ -1,0 +1,13 @@
+name: Feature request
+description: Suggest a broker-neutral improvement.
+body:
+  - type: textarea
+    id: request
+    attributes:
+      label: Who benefits and what behavior is needed?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and non-confidential examples

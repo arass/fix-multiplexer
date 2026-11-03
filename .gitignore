@@ -3,6 +3,7 @@
 .codex/config.toml
 .gocache/
 state/
+config/local.yaml
 coverage.out
 coverage
 interop/quickfixj/target/

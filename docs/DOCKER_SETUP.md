@@ -25,7 +25,7 @@ Copy `example.yaml` to `local.yaml` and edit the copy. Obtain the counterparty's
 - Set `upstream.host`, `upstream.port`, `upstream.sender_comp_id`, and `upstream.target_comp_id`. A host of `127.0.0.1` refers to the container itself; for a service on the Docker Desktop host, use `host.docker.internal`.
 - Set `downstream.listen: 0.0.0.0:9879` to accept connections through Docker's published port. Set `downstream.target_comp_id` to the gateway identity that clients will use as their TargetCompID.
 - Add a distinct `sender_comp_id` and password reference for each enabled client. A password reference is required for every enabled client when the listener is non-loopback. Each client sends its password in FIX Logon tag 554.
-- Check the upstream and fanout application message type lists against the messages required for testing. See the [README](../README.md) for defaults and configuration details.
+- Check the upstream and fanout application message type lists against the messages required for testing. See [configuration](CONFIGURATION.md) for defaults and details.
 - Optionally set `read_only: true` or a `receive_message_types` list for individual clients; see the [example configuration](../config/example.yaml). Receive filters do not isolate orders belonging to different clients.
 - Keep `upstream.store_dir: ./state/upstream` and `downstream.store_dir: ./state/downstream` for the commands below. Relative paths resolve from `/app` in the container.
 - Use environment or mounted file references for credentials; do not put credential values in YAML. Configure TLS as required, and mount referenced certificates, keys, secret files, or custom dictionaries at the paths used in the config. They must be readable by the nonroot container user.
@@ -43,7 +43,7 @@ downstream:
   store_dir: ./state/downstream
 ```
 
-For TLS and additional credential examples, see [FIX credentials and TLS configuration](../README.md#fix-credentials-and-tls-configuration). Without TLS, passwords and FIX messages are unencrypted; use an encrypted VPN and restrict access.
+For TLS and additional credential examples, see [FIX credentials and TLS configuration](CONFIGURATION.md#fix-credentials-and-tls-configuration). Without TLS, passwords and FIX messages are unencrypted; use an encrypted VPN and restrict access.
 
 ## Validate and start
 
@@ -96,3 +96,5 @@ Public accessibility depends on the server and network configuration; starting t
 Each developer connects their FIX 4.4 client to the Docker host's reachable address and published port, with their own configured SenderCompID and password, and the gateway's TargetCompID. Do not reuse a session identity for simultaneous clients. Coordinate sequence numbers rather than automatically resetting them.
 
 By default, logged-on clients receive allowed upstream broadcasts, including messages concerning other clients; per-client type filters can narrow delivery. Fanout is live-only: disconnected clients miss new broadcasts, although FIX resend can recover previously assigned messages still eligible in their own session store. A gateway error during an upstream outage is not a venue execution report or acceptance. For recovery and operational details, see [operations](OPERATIONS.md).
+
+Need help with installation or configuration? [Contact ITBS](https://www.itbsllc.com/) about optional paid assistance.
