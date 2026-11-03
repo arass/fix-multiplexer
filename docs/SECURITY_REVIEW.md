@@ -1,6 +1,6 @@
 # Security review checkpoint
 
-Review started 2026-11-02 against local tag `security-review-baseline` (commit 67f1284). This is a working review, not an independent audit or a production approval.
+Review started 2026-11-02 against local tag `security-review-baseline` (commit 72dd075 after author-email cleanup). This is a working review, not an independent audit or a production approval.
 
 ## Findings at a glance
 
