@@ -9,17 +9,23 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type Recorder struct {
 	log                  *slog.Logger
 	Replay, EngineErrors atomic.Uint64
 	Errors               chan struct{}
+	errorMu              sync.Mutex
+	lastErrorLog         time.Time
+	suppressedErrors     uint64
+	now                  func() time.Time
 }
 
 func New(w io.Writer) *Recorder {
-	return &Recorder{log: slog.New(slog.NewJSONHandler(w, nil)), Errors: make(chan struct{}, 1)}
+	return &Recorder{log: slog.New(slog.NewJSONHandler(w, nil)), Errors: make(chan struct{}, 1), now: time.Now}
 }
 func Label(id string) string {
 	sum := sha256.Sum256([]byte(id))
@@ -37,7 +43,19 @@ func (r *Recorder) EngineError(id string) {
 	case r.Errors <- struct{}{}:
 	default:
 	}
-	r.log.Error("engine_error", "session", Label(id), "detail", "suppressed to protect FIX content")
+	// Bound unauthenticated error-log floods while keeping every event in the
+	// metric. Summarize suppressed events on the next emitted error.
+	r.errorMu.Lock()
+	defer r.errorMu.Unlock()
+	now := r.now()
+	if !r.lastErrorLog.IsZero() && !now.Before(r.lastErrorLog) && now.Sub(r.lastErrorLog) < time.Second {
+		r.suppressedErrors++
+		return
+	}
+	suppressed := r.suppressedErrors
+	r.suppressedErrors = 0
+	r.lastErrorLog = now
+	r.log.Error("engine_error", "session", Label(id), "detail", "suppressed to protect FIX content", "suppressed_errors", suppressed)
 }
 func (r *Recorder) Operational(outcome string) { r.log.Info("gateway", "outcome", outcome) }
 

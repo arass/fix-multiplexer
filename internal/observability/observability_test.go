@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestMetadataNeverLogsPayloads(t *testing.T) {
@@ -27,6 +29,35 @@ func TestMetadataNeverLogsPayloads(t *testing.T) {
 		if record["time"] == nil {
 			t.Fatal("timestamp missing")
 		}
+	}
+}
+
+func TestEngineErrorLogsAreBoundedButMetricsCountEveryEvent(t *testing.T) {
+	var out bytes.Buffer
+	r := New(&out)
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	r.now = func() time.Time { return now }
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); r.EngineError("synthetic-client") }()
+	}
+	wg.Wait()
+	if r.EngineErrors.Load() != 100 || strings.Count(out.String(), "\n") != 1 {
+		t.Fatal("error flood was not bounded or counted")
+	}
+	now = now.Add(time.Second)
+	r.EngineError("synthetic-client")
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 2 {
+		t.Fatal("next error was not logged")
+	}
+	var record map[string]any
+	if json.Unmarshal([]byte(lines[1]), &record) != nil || record["suppressed_errors"] != float64(99) {
+		t.Fatal("suppressed error count missing")
+	}
+	if strings.Contains(out.String(), "synthetic-client") || r.EngineErrors.Load() != 101 {
+		t.Fatal("identity leaked or counter lost events")
 	}
 }
 
