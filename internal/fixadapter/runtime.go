@@ -106,7 +106,7 @@ func New(c config.Config, observer ...*observability.Recorder) (*Runtime, error)
 	a.Observer = r.Observer
 	r.Pending = transport.NewPending(64<<20, 2<<20)
 	a.Pending = r.Pending
-	r.Transport = transport.New(c.Service.MaxClients*2, c.Service.MaxMessageBytes, func() { r.Observer.EngineError("downstream_transport") })
+	r.Transport = transport.New(max(1, len(clients))*2, c.Service.MaxMessageBytes, func() { r.Observer.EngineError("downstream_transport") })
 	r.Stores, err = retention.Open([]string{c.Upstream.StoreDir, c.Downstream.StoreDir}, c.Retention.DiskLimitBytes, c.Retention.SessionLimitBytes, time.Now)
 	if err != nil {
 		return nil, err

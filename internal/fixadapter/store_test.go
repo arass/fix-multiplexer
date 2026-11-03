@@ -14,8 +14,33 @@ import (
 	"fix-multiplexer/internal/config"
 	"fix-multiplexer/internal/maintenance"
 	"fix-multiplexer/internal/retention"
+	"fix-multiplexer/internal/transport"
 	"github.com/quickfixgo/quickfix"
 )
+
+func TestTransportLimitUsesEnabledClients(t *testing.T) {
+	c := runtimeConfig(t)
+	c.Downstream.Clients = append(c.Downstream.Clients, config.Client{Sender: "DISABLED", Disabled: true})
+	r, err := New(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Stop()
+	for i := 0; i < 3; i++ {
+		local, remote := net.Pipe()
+		defer remote.Close()
+		conn, err := r.Transport.Add(local)
+		if i < 2 && err != nil {
+			t.Fatal(err)
+		}
+		if i == 2 && !errors.Is(err, transport.ErrLimit) {
+			t.Fatal("expected two-connection limit", err)
+		}
+		if conn != nil {
+			defer conn.Close()
+		}
+	}
+}
 
 func testStore(t *testing.T, window time.Duration) (*guardedStore, *time.Time) {
 	t.Helper()

@@ -5,7 +5,6 @@ service:
   mode: nonproduction
   bind: 127.0.0.1
   health_bind: 127.0.0.1:8081
-  max_clients: 20
   max_message_bytes: 1048576
   upstream_queue_messages: 1000
   downstream_queue_messages_per_client: 1000

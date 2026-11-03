@@ -29,7 +29,6 @@ type Service struct {
 	Mode            string        `yaml:"mode"`
 	Bind            string        `yaml:"bind"`
 	HealthBind      string        `yaml:"health_bind"`
-	MaxClients      int           `yaml:"max_clients"`
 	MaxMessageBytes int           `yaml:"max_message_bytes"`
 	UpstreamQueue   int           `yaml:"upstream_queue_messages"`
 	DownstreamQueue int           `yaml:"downstream_queue_messages_per_client"`
@@ -107,7 +106,7 @@ type Logging struct {
 
 func Defaults() Config {
 	var c Config
-	c.Service = Service{Name: "fix-multiplexer", Mode: "nonproduction", Bind: "127.0.0.1", HealthBind: "127.0.0.1:8081", MaxClients: 20, MaxMessageBytes: 1 << 20, UpstreamQueue: 1000, DownstreamQueue: 1000, ShutdownTimeout: 10 * time.Second, StartupTimeout: 15 * time.Second}
+	c.Service = Service{Name: "fix-multiplexer", Mode: "nonproduction", Bind: "127.0.0.1", HealthBind: "127.0.0.1:8081", MaxMessageBytes: 1 << 20, UpstreamQueue: 1000, DownstreamQueue: 1000, ShutdownTimeout: 10 * time.Second, StartupTimeout: 15 * time.Second}
 	c.Upstream.Version, c.Downstream.Version = "FIX.4.4", "FIX.4.4"
 	c.Upstream.AppTypes = []string{"D", "F", "G", "H", "V", "x"}
 	c.Downstream.DuplicatePolicy = "reject-new"
@@ -163,9 +162,6 @@ func (c Config) Validate() error {
 	if c.Service.HealthBind != "" && !loopbackAddress(c.Service.HealthBind) {
 		return invalid("service.health_bind must be a loopback host:port")
 	}
-	if c.Service.MaxClients < 1 || c.Service.MaxClients > 128 {
-		return invalid("service.max_clients must be between 1 and 128")
-	}
 	if c.Service.MaxMessageBytes < 256 || c.Service.MaxMessageBytes > 1<<20 {
 		return invalid("service.max_message_bytes must be between 256 and 1048576")
 	}
@@ -196,8 +192,8 @@ func (c Config) Validate() error {
 	if !identifier.MatchString(c.Downstream.Target) {
 		return invalid("downstream.target_comp_id")
 	}
-	if len(c.Downstream.Clients) == 0 || len(c.Downstream.Clients) > c.Service.MaxClients {
-		return invalid("downstream allowlist must be nonempty and within max_clients")
+	if len(c.Downstream.Clients) == 0 || len(c.Downstream.Clients) > 128 {
+		return invalid("downstream allowlist must contain between 1 and 128 clients")
 	}
 	seen := make(map[string]bool)
 	for _, cl := range c.Downstream.Clients {

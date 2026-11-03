@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -28,6 +29,21 @@ func TestSample(t *testing.T) {
 	}
 }
 
+func TestClientCountLimit(t *testing.T) {
+	c := sample(t)
+	c.Downstream.Clients = make([]Client, 128)
+	for i := range c.Downstream.Clients {
+		c.Downstream.Clients[i].Sender = fmt.Sprintf("CLIENT_%d", i)
+	}
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	c.Downstream.Clients = append(c.Downstream.Clients, Client{Sender: "CLIENT_128", Disabled: true})
+	if c.Validate() == nil {
+		t.Fatal("more than 128 configured clients accepted")
+	}
+}
+
 func TestValidation(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -37,7 +53,6 @@ func TestValidation(t *testing.T) {
 		{"name", func(c *Config) { c.Service.Name = "bad\nname" }},
 		{"bind", func(c *Config) { c.Service.Bind = "0.0.0.0" }},
 		{"health", func(c *Config) { c.Service.HealthBind = ":8080" }},
-		{"client-limit", func(c *Config) { c.Service.MaxClients = 0 }},
 		{"message-limit", func(c *Config) { c.Service.MaxMessageBytes = -1 }},
 		{"queue", func(c *Config) { c.Service.UpstreamQueue = 0 }},
 		{"downstream-queue", func(c *Config) { c.Service.DownstreamQueue = 5000 }},
@@ -52,7 +67,12 @@ func TestValidation(t *testing.T) {
 		{"same-listener", func(c *Config) { c.Downstream.Listen = c.Service.HealthBind }},
 		{"target", func(c *Config) { c.Downstream.Target = "" }},
 		{"empty-allowlist", func(c *Config) { c.Downstream.Clients = nil }},
-		{"too-many", func(c *Config) { c.Service.MaxClients = 1 }},
+		{"too-many", func(c *Config) {
+			c.Downstream.Clients = make([]Client, 129)
+			for i := range c.Downstream.Clients {
+				c.Downstream.Clients[i].Sender = fmt.Sprintf("CLIENT_%d", i)
+			}
+		}},
 		{"same-client", func(c *Config) { c.Downstream.Clients[1].Sender = c.Downstream.Clients[0].Sender }},
 		{"self-client", func(c *Config) { c.Downstream.Clients[0].Sender = c.Downstream.Target }},
 		{"client-secret", func(c *Config) { c.Downstream.Clients[0].Password = Secret{Env: "PASSWORD", File: "password.txt"} }},

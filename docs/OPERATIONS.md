@@ -57,7 +57,9 @@ FIX 4.4 only; identical XML dictionaries on both boundaries. Standard and custom
 
 `/live` checks process serving; `/ready` requires the upstream logged on, routing active and required store health. Disconnected downstream clients do not make the entire service unready. `/metrics` reports routing outcomes, queue bytes/depth, engine queue credit, cached store usage, disk warning threshold, replay observations and hashed per-session labels. Disable HTTP with `service.health_bind: ""`. The CLI `-probe` flag performs a bounded local HTTP check.
 
-Both network boundaries cap unread bytes before engine parsing. That cap also bounds read-ahead bursts; excessive bursts may cause disconnect even when individual messages are smaller than the limit. Downstream pending connections are capped at twice max_clients, with a five-second initial read deadline. Established read inactivity has a 65-second bound and writes a five-second deadline, alongside FIX heartbeat handling.
+Both network boundaries cap unread bytes before engine parsing. That cap also bounds read-ahead bursts; excessive bursts may cause disconnect even when individual messages are smaller than the limit. Downstream transport connections are capped at twice the number of enabled clients, with a minimum of two slots and a five-second initial read deadline. Established read inactivity has a 65-second bound and writes a five-second deadline, alongside FIX heartbeat handling.
+
+The allowlist supports at most 128 configured clients, including disabled entries. Older configuration files containing `service.max_clients` must remove that field; strict validation rejects it. The connection cap is calculated automatically.
 
 The upstream engine connects through a private loopback transport bridge because its API has no custom dial/read hook. The bridge performs certificate-verified TLS against the configured venue and copies opaque bytes for that same FIX session. It does not interpret FIX, tunnel admin messages between independent sessions, or replace the engine. Independent logon/admin/sequence behavior remains at the two FIX boundaries.
 
