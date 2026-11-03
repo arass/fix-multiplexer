@@ -1,4 +1,4 @@
-# Validated top-level YAML schema. FIX runtime is being implemented in phases.
+# Example FIX 4.4 configuration for local development and the mock venue.
 # No real credentials, private endpoints, or public listener defaults.
 service:
   name: fix-multiplexer
@@ -19,7 +19,7 @@ upstream:
   target_comp_id: MOCKVENUE
   store_dir: ./state/upstream
   tls_enabled: false # local mock only; verify server certificates when enabled
-  # Use a file or env secret reference in the actual implementation.
+  # Add username/password environment or file references when required.
 downstream:
   fix_version: FIX.4.4
   listen: 127.0.0.1:9879
@@ -31,7 +31,7 @@ downstream:
   store_dir: ./state/downstream
 fanout:
   mode: live-only
-  app_message_types: ["8", "9", "j"] # illustrative only; Codex must define exact documented policy
+  app_message_types: ["8", "9", "j"] # example narrows the default fanout policy
 retention:
   downstream_replay_window: 8h # older application replay requests retire the session
   upstream_replay_window: 0s # independent: no age cutoff, still subject to disk budgets

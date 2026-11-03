@@ -1,10 +1,10 @@
-# FIX Multiplexer
+# FIX Multiplexer: FIX Gateway for Shared Sessions
 
 **FIX protocol proxy and gateway for sharing one upstream FIX session across multiple clients.**
 
 FIX Multiplexer is a standalone **FIX-to-FIX session multiplexer** for trading-system development, QA, certification rehearsals, and shared UAT environments. It lets multiple independent FIX clients connect to a single FIX counterparty session without changing those clients to use REST, WebSockets, or a proprietary SDK.
 
-> **Project status:** Phases 1–5 have working implementations and local regression evidence, including independent QuickFIX/J peers and an extended socket soak. This is a nonproduction development checkpoint, with licensing undecided; no release is published. See [implementation checkpoint](docs/IMPLEMENTATION_STATUS.md) and [acceptance evidence and remaining variants](docs/TEST_STATUS.md).
+> **Project status:** A nonproduction development checkpoint with local regression evidence, including QuickFIX/J interoperability. Licensing is undecided and no release is published. A security review is in progress: an unresolved local-process access issue affects the upstream bridge. Use an isolated host or network namespace containing only trusted processes; see the [security review](docs/SECURITY_REVIEW.md).
 
 ```text
 Dev A ── FIX ──┐
@@ -76,15 +76,10 @@ Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the proposed failure seman
 
 ## Getting started
 
-Go 1.23 or newer is required (development checks currently use 1.27.3).
+Go 1.23 or newer is required (development checks currently use 1.27.3). Run commands from the repository root. To try the FIX gateway without a counterparty or credentials:
 
 ```sh
-go run ./cmd/fix-multiplexer -config config/example.yaml -check-config
 go run ./cmd/fix-multiplexer -demo
-go vet ./...
-go test -short ./...
-go test -tags=integration ./...
-go test -race -tags=soak ./internal/gateway -run TestRoutingSoak -timeout=60s
 ```
 
 On this Windows workspace, the verified local toolchain is `.tools/go/bin/go.exe`; it is not added to PATH. Linux race checks can run in the official Go container. Configuration currently requires loopback listeners; unknown fields and unsupported FIX versions fail startup. Credential values belong in environment/file references. Defaults and the sample are validated by tests.
@@ -101,6 +96,70 @@ The demo contains:
 2. The FIX multiplexer with one upstream initiator and multiple downstream acceptor sessions.
 3. Three independent FIX test clients.
 4. Automated smoke tests proving that orders reach the upstream counterparty and application-level reports reach connected clients.
+
+## Configure a FIX session multiplexer for your counterparty
+
+The gateway initiates **one** FIX 4.4 session to your counterparty and accepts separate FIX 4.4 sessions from your clients. Before starting, obtain the counterparty's UAT host, port, your assigned SenderCompID, its TargetCompID, any logon credentials, and TLS requirements. Agree on the initial sequence numbers and message types with the counterparty. Use synthetic or otherwise permitted test data.
+
+1. Copy `config/example.yaml` to a local file, for example `config/local.yaml`, and edit that copy. Paths in the configuration are resolved from the working directory; the commands below assume the repository root.
+2. In `upstream`, set `host`, `port`, `sender_comp_id` (the gateway's identity assigned by the counterparty), and `target_comp_id` (the counterparty's identity). Set `tls_enabled: true` if the counterparty requires TLS. Configure credentials and certificates as shown below when required.
+3. In `downstream`, set `target_comp_id` to the gateway identity your clients will use as their TargetCompID. Add a distinct `sender_comp_id` under `clients` for each client's SenderCompID. Choose separate persistent `upstream.store_dir` and `downstream.store_dir` directories protected from other users; preserve them across restarts.
+4. Check `upstream.app_message_types` and `fanout.app_message_types` against the messages you need. When omitted, upstream defaults to `D`, `F`, `G`, `H`, `V`, `x`; downstream defaults to `8`, `9`, `j`, `W`, `X`, `Y`, `y`. The supplied example explicitly narrows downstream fanout to `8`, `9`, `j`. Unsupported downstream submissions receive a gateway-generated FIX error; upstream types outside the fanout policy are dropped and counted.
+5. Validate and start the gateway:
+
+   ```sh
+   go run ./cmd/fix-multiplexer -config config/local.yaml -check-config
+   go run ./cmd/fix-multiplexer -config config/local.yaml
+   ```
+
+   Validation checks the configuration schema and constraints; it does not prove credentials, certificates, connectivity, or a successful FIX logon. The daemon loads credentials, dictionaries and certificates when starting.
+6. Configure each client's FIX initiator to connect to the configured `downstream.listen`. With the supplied example, client `DEV_A` connects to `127.0.0.1:9879` with `BeginString=FIX.4.4`, `SenderCompID=DEV_A`, and `TargetCompID=MULTIPLEXER`. The gateway presents the inverse identity on that session. Configure `DEV_B` and `QA_1` with their own sender IDs; do not reuse one session identity for multiple simultaneous clients. Coordinate sequence numbers instead of enabling automatic resets.
+7. In another terminal, check the upstream session and store health:
+
+   ```sh
+   go run ./cmd/fix-multiplexer -config config/local.yaml -probe live
+   go run ./cmd/fix-multiplexer -config config/local.yaml -probe ready
+   go run ./cmd/fix-multiplexer -config config/local.yaml -probe metrics
+   ```
+
+   `/live` indicates that management is serving. `/ready` succeeds when the upstream FIX session is logged on and required routing and storage are healthy; it does not require every downstream client to be connected. If readiness fails, check the endpoint, CompIDs, credentials, TLS trust, and counterparty session status. If a client cannot log on, also check its allowlisted SenderCompID, TargetCompID, password and sequence numbers. Logs contain metadata rather than FIX payloads.
+
+### FIX credentials and TLS configuration
+
+The following are **partial YAML examples** to merge into the matching sections of your local configuration. Set the referenced environment variables securely in the gateway process environment; do not put credential values in YAML or commit them. A `file` reference can be used instead of `env`, for example `password: {file: /path/to/mounted/secret}`.
+
+```yaml
+upstream:
+  tls_enabled: true
+  username: {env: FIX_UPSTREAM_USERNAME}
+  password: {env: FIX_UPSTREAM_PASSWORD}
+  tls:
+    ca_file: /path/to/venue-ca.pem       # omit to use system roots
+    server_name: fix-uat.example.com     # must match the venue certificate
+    # cert_file: /path/to/client-cert.pem # if the venue requires mTLS
+    # key_file: /path/to/client-key.pem
+downstream:
+  clients:
+    - sender_comp_id: DEV_A
+      password: {env: FIX_DEV_A_PASSWORD}
+```
+
+For downstream TLS, set `downstream.tls_enabled: true` and provide `downstream.tls.cert_file` and `downstream.tls.key_file`. For mutual TLS, also set `downstream.tls.ca_file` and `downstream.tls.require_client_cert: true`; clients must trust the gateway certificate and present an accepted client certificate. A configured client password is checked in the FIX Logon as well. Without a password or mTLS, an allowlisted CompID alone is not a secret. An upstream TLS certificate is verified against the configured `server_name`, or the upstream host when that field is omitted.
+
+**Connection scope:** downstream FIX and management listeners require literal loopback addresses, so clients must reach the gateway through the same network namespace; this version cannot bind a public or LAN address. The local upstream bridge currently trusts other processes in that namespace. Use only trusted processes and clients, and read the [security review](docs/SECURITY_REVIEW.md) before connecting credentials. All logged-on downstream clients receive allowed upstream broadcasts, including messages concerning other clients.
+
+### FIX recovery and troubleshooting
+
+Downstream fanout is live-only: a disconnected client misses new broadcasts, while FIX resend can recover previously assigned messages still eligible under that session's store policy. The configurable downstream replay window defaults to eight hours; an expired replay requires coordinated reset or reprovisioning. A gateway-generated BusinessMessageReject during an upstream outage is not a venue execution report or acceptance. See [operations and recovery](docs/OPERATIONS.md) for store protection, readiness, stale sessions, and crash recovery.
+
+### Development checks
+
+```sh
+go vet ./...
+go test -short ./...
+go test -tags=integration ./...
+go test -race -tags=soak ./internal/gateway -run TestRoutingSoak -timeout=60s
+```
 
 Independent-engine checks are reproducible with [QuickFIX/J](interop/quickfixj/README.md). The extended socket soak runs separately from fast tests:
 
