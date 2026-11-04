@@ -2,6 +2,7 @@
 upstream:
   host: 127.0.0.1
   port: 9880
+  reconnect_interval: 1s # the local mock acceptor starts after the gateway
   sender_comp_id: MULTIPLEXER
   target_comp_id: MOCKVENUE
   store_dir: ./state/upstream

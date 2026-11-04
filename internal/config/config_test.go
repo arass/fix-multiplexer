@@ -42,6 +42,21 @@ func TestExampleMixedClients(t *testing.T) {
 	}
 }
 
+func TestInteropFixtureReconnectInterval(t *testing.T) {
+	f, err := os.Open("../../interop/quickfixj/config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	c, err := Load(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Upstream.ReconnectInterval != time.Second {
+		t.Fatal("interop fixture needs a short retry while its mock acceptor starts")
+	}
+}
+
 func TestClientReceivePolicyYAMLRoundTrip(t *testing.T) {
 	for _, types := range [][]string{nil, {}, {"8"}} {
 		c := sample(t)
