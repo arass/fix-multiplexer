@@ -11,7 +11,7 @@ This document records the current GitHub publishing setup. Repository visibility
 
 ## Manual release steps after approval
 
-1. Confirm repository owner, visibility, private vulnerability reporting and About metadata in GitHub settings. Review all branches, tags and history for secrets and customer references before publication.
+1. The repository is public. Verify private vulnerability reporting and About metadata in GitHub settings; review new branches, tags and changes for secrets and customer references before future publication.
 2. The manual-only [GHCR workflow](../.github/workflows/publish-ghcr.yml) has published `ghcr.io/arass/fix-multiplexer:v0.1.0`. It builds the selected revision, runs the Docker test target and image smoke tests, and uses the built-in `GITHUB_TOKEN`; it does not create a Git tag, publish `latest`, change package visibility or push to Docker Hub. Image tags can be overwritten by a later authorized run, so use a new version for each release. GHCR visibility is configured separately from repository visibility; check package settings before promising anonymous pulls.
 3. Choose a SemVer release tag, create release notes covering compatibility and limitations, attach verified artifacts and matching image tags, and document checksums and the linked-module inventory.
 4. Verify configuration mounts, persistent storage, FIX session smoke tests and documentation links against the exact released version. Re-check security and dependency advisories at release time.

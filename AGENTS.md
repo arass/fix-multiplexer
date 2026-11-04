@@ -1,6 +1,6 @@
 # Instructions for coding agents
 
-Read `CODEX_TASK.md`, `docs/ARCHITECTURE.md`, `docs/TEST_PLAN.md`, and `README.md` before modifying code. These files are authoritative for scope and semantics; do not silently broaden the project into an order management system.
+Read `docs/CODEX_TASK.md`, `docs/ARCHITECTURE.md`, `docs/TEST_PLAN.md`, and `README.md` before modifying code. These files are authoritative for scope and semantics; do not silently broaden the project into an order management system.
 
 ## Core invariants
 
@@ -17,7 +17,7 @@ Read `CODEX_TASK.md`, `docs/ARCHITECTURE.md`, `docs/TEST_PLAN.md`, and `README.m
 
 ## Engineering workflow
 
-- Work through the phases in `CODEX_TASK.md`, keeping the repo runnable at each milestone.
+- Work through the phases in `docs/CODEX_TASK.md`, keeping the repo runnable at each milestone.
 - Favor a small, documented core over performance micro-optimizations.
 - Write table-driven unit tests before or alongside each behavior. Prefer race-safe and event-driven integration tests; avoid `time.Sleep` as synchronization.
 - Unit tests must not need internet, live counterparty credentials, Docker, or developer-specific environments.

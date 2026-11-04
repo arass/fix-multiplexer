@@ -10,7 +10,7 @@ The manual-only GHCR workflow published `ghcr.io/arass/fix-multiplexer:v0.1.0` a
 
 Gitleaks v8.30.1 scanned 44 reachable local commits with `--all` and reported no secrets. The owner then authorized rewriting local history to replace the historical counterparty name; all 45 rewritten commit trees were checked, and the cleaned branch was force-pushed with authorization. Existing clones, backups or cached copies may retain the old history. The scanner image was removed afterward.
 
-The owner confirmed first-party ownership and selected Apache 2.0. Local release materials are prepared; current publication blockers and remaining checks are in `docs/PUBLIC_RELEASE_CHECKLIST.md`. Docker runtime demo, configuration validation, full Docker test target, coverage gate and Compose demo passed. The first Compose attempt lost the Docker connection; the retry passed after Docker restarted, and temporary images and the container were removed. Do not publish or push a release without separate authorization.
+The owner confirmed first-party ownership, selected Apache 2.0, made the repository public and published the initial GHCR image. Local release materials are prepared; follow-up checks are in `docs/PUBLIC_RELEASE_CHECKLIST.md`. Docker runtime demo, configuration validation, full Docker test target, coverage gate and Compose demo passed. The first Compose attempt lost the Docker connection; the retry passed after Docker restarted, and temporary images and the container were removed.
 
 The owner consolidated the mixed-client subscriber example into `config/example.yaml`; it includes a read-only `DROP_COPY` client alongside the original writable `DEV_A`, `DEV_B` and `QA_1` examples. The separate example was removed. Configuration validation and `go test ./...` pass with the consolidated example.
 
@@ -20,7 +20,7 @@ Per-client read-only and receive filtering has an implementation checkpoint. Rea
 
 The Docker test target passed formatting, vet, short tests, the coverage gate (config 100%, gateway 97.3%, fixadapter 90.4%, sessions 100%, retention 92.6%), full race-enabled integration and routing soak. The final extended recovery and multi-character socket tests also passed separately under the race detector. The focused socket tests passed repeatedly on Windows; `go test ./...` passed.
 
-Phases 1–5 have working implementations and local regression evidence. Independent-engine interoperability, extended socket soak, linked-module/license inventory and clean-checkout demo reproduction passed. The gateway, durable recovery, offline retention, bounded transport, TLS/mTLS, metadata logging, health and metrics are implemented. The owner subsequently chose Apache 2.0; publication and release tags still require separate authorization. User decisions in CODEX_TASK.md take precedence over earlier suggestions.
+Phases 1–5 have working implementations and local regression evidence. Independent-engine interoperability, extended socket soak, linked-module/license inventory and clean-checkout demo reproduction passed. The gateway, durable recovery, offline retention, bounded transport, TLS/mTLS, metadata logging, health and metrics are implemented. The owner chose Apache 2.0 and published the initial source and image; future version releases remain manual. User decisions in docs/CODEX_TASK.md take precedence over earlier suggestions.
 
 ## Completed
 
