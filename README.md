@@ -14,6 +14,12 @@ Each client has its own FIX session, sequence numbers and resend history. The ga
 - Receive a best-effort Drop Copy-style feed of messages actually supplied by the counterparty. This is not a venue-wide feed or authoritative audit trail.
 - Use persistent stores, configurable retention, health checks, optional TLS and separate downstream passwords.
 
+## FIX Drop Copy and read-only subscribers
+
+Need a FIX Drop Copy feed for developers, QA, or test systems sharing a FIX 4.4 UAT connection? FIX Multiplexer supports **read-only FIX subscribers** alongside writable downstream clients. Configure a client with `read_only: true` to prevent its application messages from being sent upstream, and use `receive_message_types` to choose which globally enabled upstream message types it receives. For example, subscribe to execution reports (`35=8`) or other application messages your counterparty sends. The [example YAML](config/example.yaml) includes a `DROP_COPY` subscriber; see [configuration details](docs/CONFIGURATION.md) for the options.
+
+This is best-effort, **Drop Copy-style fanout** over the gateway's existing upstream FIX session. It does not establish a separate venue Drop Copy session or create a venue-wide feed: subscribers can only receive messages the configured counterparty sends to that session. Delivery is live-only, so disconnected subscribers miss new messages, and the service is not an authoritative audit trail or production-certified Drop Copy system. All connected subscribers may see reports about other clients' orders; use only with trusted participants. See [delivery and security limitations](docs/ARCHITECTURE.md).
+
 ## Quick start: Docker local build
 
 From the repository root, with Docker installed, run the isolated mock demo:
