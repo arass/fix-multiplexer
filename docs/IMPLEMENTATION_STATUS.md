@@ -2,7 +2,7 @@
 
 ## Current state
 
-The GitHub interoperability fixture timed out at initialization; the log did not identify the missing logon. Starting the mock acceptor late reproduced the same failure when the gateway used its 60-second default retry. The fixture now explicitly uses a one-second reconnect interval, and both ordinary and delayed local runs pass; the actual default remains 60 seconds. The config regression and Docker test target (format, vet, coverage, race integration and routing soak) passed; the fix still needs a GitHub Actions rerun after push.
+The GitHub interoperability fixture timed out at initialization; the log did not identify the missing logon. Starting the mock acceptor late reproduced the same failure when the gateway used its 60-second default retry. The fixture now explicitly uses a one-second reconnect interval, and both ordinary and delayed local runs pass; the actual default remains 60 seconds. The config regression and Docker test target passed. GitHub Actions run 17 passed unit, race integration, container, routing soak and interoperability after the fix; the optional manual socket soak was skipped.
 
 Prepared a manual-only GHCR workflow with default image version `v0.1.0`, selected-revision builds, Docker test and smoke gates, and `GITHUB_TOKEN` package write permission. Local actionlint, version validation, Docker test target, bundled configuration and isolated demo passed. It does not publish automatically, change visibility, create Git tags or integrate Docker Hub. Publication and remote verification remain pending owner approval.
 
