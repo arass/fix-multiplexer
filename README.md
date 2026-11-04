@@ -20,15 +20,26 @@ Need a FIX Drop Copy feed for developers, QA, or test systems sharing a FIX 4.4 
 
 This is best-effort, **Drop Copy-style fanout** over the gateway's existing upstream FIX session. It does not establish a separate venue Drop Copy session or create a venue-wide feed: subscribers can only receive messages the configured counterparty sends to that session. Delivery is live-only, so disconnected subscribers miss new messages, and the service is not an authoritative audit trail or production-certified Drop Copy system. All connected subscribers may see reports about other clients' orders; use only with trusted participants. See [delivery and security limitations](docs/ARCHITECTURE.md).
 
+## Quick start: published Docker image
+
+Try the published image without building from source. This runs the isolated mock demo:
+
+```sh
+docker pull ghcr.io/arass/fix-multiplexer:v0.1.0
+docker run --rm --network none ghcr.io/arass/fix-multiplexer:v0.1.0 -demo
+```
+
+If the GHCR package is public, it can be pulled anonymously. If it is private, authenticate with a GitHub token that has `read:packages` access first. For a configured UAT deployment, see the [Docker setup guide](docs/DOCKER_SETUP.md).
+
 ## Quick start: Docker local build
 
-From the repository root, with Docker installed, run the isolated mock demo:
+To build from source instead, run the isolated Compose mock demo from the repository root with Docker installed:
 
 ```sh
 docker compose -f examples/docker-compose.yml up --build --abort-on-container-exit --exit-code-from smoke
 ```
 
-This builds the image locally, starts a simulated counterparty and three clients, checks FIX message flow and exits. It requires no real credentials or external FIX connection. No public image location is advertised yet.
+This builds the image locally, starts a simulated counterparty and three clients, checks FIX message flow and exits. It requires no real credentials or external FIX connection.
 
 To connect the gateway to your own UAT counterparty, follow the **[Docker setup guide](docs/DOCKER_SETUP.md)** for image handoff, configuration, persistent session stores, network access and troubleshooting. The annotated [example configuration](config/example.yaml) includes writable clients and a read-only subscriber.
 

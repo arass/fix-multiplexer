@@ -6,7 +6,7 @@ The GitHub interoperability fixture timed out at initialization; the log did not
 
 README now has a dedicated FIX Drop Copy and read-only subscriber section, with search terms tied to supported behavior, an example config link, and clear boundaries around live-only fanout and venue-provided feeds.
 
-Prepared a manual-only GHCR workflow with default image version `v0.1.0`, selected-revision builds, Docker test and smoke gates, and `GITHUB_TOKEN` package write permission. Local actionlint, version validation, Docker test target, bundled configuration and isolated demo passed. It does not publish automatically, change visibility, create Git tags or integrate Docker Hub. Publication and remote verification remain pending owner approval.
+The manual-only GHCR workflow published `ghcr.io/arass/fix-multiplexer:v0.1.0` after its Docker test and smoke gates passed. README and Docker setup now explain pulling the published version as well as building locally. Package visibility remains independently controlled in GHCR settings; verify anonymous pulls before advertising it as public. The workflow does not publish automatically, change visibility, create Git tags or integrate Docker Hub.
 
 Gitleaks v8.30.1 scanned 44 reachable local commits with `--all` and reported no secrets. The owner then authorized rewriting local history to replace the historical counterparty name; all 45 rewritten commit trees were checked, and the cleaned branch was force-pushed with authorization. Existing clones, backups or cached copies may retain the old history. The scanner image was removed afterward.
 

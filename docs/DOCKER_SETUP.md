@@ -4,12 +4,32 @@ This guide runs one FIX Multiplexer container with one upstream FIX 4.4 session 
 
 For a shared server, install and run one container on that server. Developers connect from their own machines to the server; they do not each need to run the container. The server can accept connections over the internet when its public address, Docker port mapping, and firewalls are configured as described below.
 
-## Give the image to a developer
+## Choose a published or locally built image
 
-From a machine that already has the `fix-multiplexer:latest` image, export it in PowerShell:
+The versioned image is `ghcr.io/arass/fix-multiplexer:v0.1.0`. From PowerShell, pull it and set `$Image` for the commands below:
 
 ```powershell
-docker save -o fix-multiplexer.tar fix-multiplexer:latest
+$Image = "ghcr.io/arass/fix-multiplexer:v0.1.0"
+docker pull $Image
+```
+
+If the GHCR package is public, the pull works without signing in. If it is private, authenticate to `ghcr.io` with a GitHub token that has `read:packages` access; do not put the token in a command or config file.
+
+To build from source instead, clone the repository, open PowerShell in its root, and run:
+
+```powershell
+docker build -t fix-multiplexer:local .
+$Image = "fix-multiplexer:local"
+```
+
+Choose either route, then use the same config and run commands below. In a new PowerShell window, set `$Image` to the selected image first.
+
+## Give the image to a developer
+
+From a machine that already has the selected image in Docker, export it in PowerShell:
+
+```powershell
+docker save -o fix-multiplexer.tar $Image
 ```
 
 Send the tar file and a copy of [`config/example.yaml`](../config/example.yaml) to the operator. Exporting saves the image currently in Docker; rebuild it first if source changes need to be included. The recipient loads it with:
@@ -52,7 +72,7 @@ In PowerShell, change to the directory containing `local.yaml`. Set the environm
 ```powershell
 docker run --rm `
   --mount "type=bind,source=$((Resolve-Path .\local.yaml).Path),target=/app/config/local.yaml,readonly" `
-  fix-multiplexer:latest -config /app/config/local.yaml -check-config
+  $Image -config /app/config/local.yaml -check-config
 ```
 
 Validation checks configuration syntax and constraints; it does not prove credentials, certificates, connectivity, or FIX logon.
@@ -65,7 +85,7 @@ docker run -d --name fix-multiplexer `
   --mount "type=volume,source=fix-multiplexer-state,target=/app/state" `
   -p 9879:9879 `
   -e FIX_DEV_A_PASSWORD `
-  fix-multiplexer:latest -config /app/config/local.yaml
+  $Image -config /app/config/local.yaml
 ```
 
 Add an `-e VARIABLE_NAME` for every environment credential referenced by the config. Add read-only mounts for any referenced certificates or secret files. Ensure the named volume is writable by the image's nonroot user. Preserve the volume across restarts: it contains FIX sequence state and replay history. Do not delete or reset it without coordinating session recovery with peers. Protect it as sensitive test data.
