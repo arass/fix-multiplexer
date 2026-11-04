@@ -1,0 +1,59 @@
+name: Publish versioned GHCR image
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Image version (for example v0.1.0)
+        type: string
+        required: true
+        default: v0.1.0
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate image version
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Version must be a stable version such as v0.1.0" >&2
+            exit 1
+          fi
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check out selected revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run test and coverage gate
+        run: docker build --target test -t fix-multiplexer-publish-test .
+
+      - name: Build and smoke-test image
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:$VERSION"
+          docker build \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.version=$VERSION" \
+            -t "$image" .
+          docker run --rm --network none "$image" -check-config
+          docker run --rm --network none --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m "$image" -demo
+
+      - name: Publish to GHCR
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:$VERSION"
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$image"

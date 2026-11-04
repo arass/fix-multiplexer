@@ -2,6 +2,8 @@
 
 ## Current state
 
+Prepared a manual-only GHCR workflow with default image version `v0.1.0`, selected-revision builds, Docker test and smoke gates, and `GITHUB_TOKEN` package write permission. Local actionlint, version validation, Docker test target, bundled configuration and isolated demo passed. It does not publish automatically, change visibility, create Git tags or integrate Docker Hub. Publication and remote verification remain pending owner approval.
+
 Gitleaks v8.30.1 scanned 44 reachable local commits with `--all` and reported no secrets. The owner then authorized rewriting local history to replace the historical counterparty name; all 45 rewritten commit trees were checked, and the cleaned branch was force-pushed with authorization. Existing clones, backups or cached copies may retain the old history. The scanner image was removed afterward.
 
 The owner confirmed first-party ownership and selected Apache 2.0. Local release materials are prepared; current publication blockers and remaining checks are in `docs/PUBLIC_RELEASE_CHECKLIST.md`. Docker runtime demo, configuration validation, full Docker test target, coverage gate and Compose demo passed. The first Compose attempt lost the Docker connection; the retry passed after Docker restarted, and temporary images and the container were removed. Do not publish or push a release without separate authorization.
