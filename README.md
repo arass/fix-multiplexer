@@ -22,8 +22,6 @@ Each client has its own FIX session, sequence numbers and resend history. The ga
 | Subscribe to execution reports without submitting orders | Read-only FIX clients receive selected message types from the existing upstream feed. |
 | Test FIX client connectivity and recovery | Run a local mock counterparty and clients, then examine tests for reconnects, resend requests and upstream outages. |
 
-For help connecting your own systems or adapting the gateway, see [FIX integration and custom development from ITBS](#fix-integration-consulting-and-custom-software-development).
-
 ## FIX Drop Copy and read-only subscribers
 
 Need a FIX Drop Copy feed for developers, QA, or test systems sharing a FIX 4.4 UAT connection? FIX Multiplexer supports **read-only FIX subscribers** alongside writable downstream clients. Configure a client with `read_only: true` to prevent its application messages from being sent upstream, and use `receive_message_types` to choose which globally enabled upstream message types it receives. For example, subscribe to execution reports (`35=8`) or other application messages your counterparty sends. The [example YAML](config/example.yaml) includes a `DROP_COPY` subscriber; see [configuration details](docs/CONFIGURATION.md) for the options.

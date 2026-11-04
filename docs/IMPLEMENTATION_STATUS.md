@@ -4,9 +4,7 @@
 
 The GitHub interoperability fixture timed out at initialization; the log did not identify the missing logon. Starting the mock acceptor late reproduced the same failure when the gateway used its 60-second default retry. The fixture now explicitly uses a one-second reconnect interval, and both ordinary and delayed local runs pass; the actual default remains 60 seconds. The config regression and Docker test target passed. GitHub Actions run 17 passed unit, race integration, container, routing soak and interoperability after the fix; the optional manual socket soak was skipped.
 
-README now has a dedicated FIX Drop Copy and read-only subscriber section, with search terms tied to supported behavior, an example config link, and clear boundaries around live-only fanout and venue-provided feeds.
-
-README discoverability now also covers FIX 4.4 session sharing, Go/Golang and QuickFIX/Go examples, with a source-reading guide and specific UAT use cases. The ITBS services section connects relevant users to FIX integration, custom development and broader software assistance. Suggested GitHub description and topics are recorded in `docs/GITHUB_PUBLISHING.md`; remote metadata was not changed. Documentation changes require no Go test run; whitespace and local link targets were checked.
+README documents FIX Drop Copy and read-only subscribers, UAT session sharing and QuickFIX/Go examples. It links to the example configuration and relevant source files, and explains live-only delivery and the limits of the upstream feed. Local link targets and whitespace were checked.
 
 The manual-only GHCR workflow published `ghcr.io/arass/fix-multiplexer:v0.1.0` after its Docker test and smoke gates passed. README and Docker setup now explain pulling the published version as well as building locally. Package visibility remains independently controlled in GHCR settings; verify anonymous pulls before advertising it as public. The workflow does not publish automatically, change visibility, create Git tags or integrate Docker Hub.
 
