@@ -6,6 +6,8 @@ The GitHub interoperability fixture timed out at initialization; the log did not
 
 README now has a dedicated FIX Drop Copy and read-only subscriber section, with search terms tied to supported behavior, an example config link, and clear boundaries around live-only fanout and venue-provided feeds.
 
+README discoverability now also covers FIX 4.4 session sharing, Go/Golang and QuickFIX/Go examples, with a source-reading guide and specific UAT use cases. The ITBS services section connects relevant users to FIX integration, custom development and broader software assistance. Suggested GitHub description and topics are recorded in `docs/GITHUB_PUBLISHING.md`; remote metadata was not changed. Documentation changes require no Go test run; whitespace and local link targets were checked.
+
 The manual-only GHCR workflow published `ghcr.io/arass/fix-multiplexer:v0.1.0` after its Docker test and smoke gates passed. README and Docker setup now explain pulling the published version as well as building locally. Package visibility remains independently controlled in GHCR settings; verify anonymous pulls before advertising it as public. The workflow does not publish automatically, change visibility, create Git tags or integrate Docker Hub.
 
 Gitleaks v8.30.1 scanned 44 reachable local commits with `--all` and reported no secrets. The owner then authorized rewriting local history to replace the historical counterparty name; all 45 rewritten commit trees were checked, and the cleaned branch was force-pushed with authorization. Existing clones, backups or cached copies may retain the old history. The scanner image was removed afterward.
