@@ -15,7 +15,7 @@ Unknown YAML fields are rejected. Durations use Go notation such as `60s` or `8h
 | Key | Default and purpose |
 |---|---|
 | `service.name` | `fix-multiplexer`; service identifier. |
-| `service.mode` | `nonproduction`; the only supported mode. |
+| `service.mode` | `nonproduction`; the only accepted value, retained for configuration compatibility. This field does not select a different delivery or security policy. |
 | `service.bind` | `127.0.0.1`; validated loopback service address. |
 | `service.health_bind` | `127.0.0.1:8081`; empty disables management HTTP. |
 | `service.max_message_bytes` | `1048576`; maximum message size. |
@@ -53,7 +53,7 @@ Unknown YAML fields are rejected. Durations use Go notation such as `60s` or `8h
 
 ## Configure a FIX session multiplexer for your counterparty
 
-The gateway initiates **one** FIX 4.4 session to your counterparty and accepts separate FIX 4.4 sessions from your clients. Before starting, obtain the counterparty's UAT host, port, your assigned SenderCompID, its TargetCompID, any logon credentials, and TLS requirements. Agree on the initial sequence numbers and message types with the counterparty. Use synthetic or otherwise permitted test data.
+The gateway initiates **one** FIX 4.4 session to your counterparty and accepts separate FIX 4.4 sessions from your clients. Before starting, obtain the counterparty's host, port, your assigned SenderCompID, its TargetCompID, any logon credentials, and TLS requirements. Agree on the initial sequence numbers and message types with the counterparty. Use synthetic data for initial testing.
 
 1. Copy `config/example.yaml` to a local file, for example `config/local.yaml`, and edit that copy. Paths in the configuration are resolved from the working directory; the commands below assume the repository root.
 2. In `upstream`, set `host`, `port`, `sender_comp_id` (the gateway's identity assigned by the counterparty), and `target_comp_id` (the counterparty's identity). Set `tls_enabled: true` if the counterparty requires TLS. Configure credentials and certificates as shown below when required.
@@ -92,7 +92,7 @@ upstream:
   password: {env: FIX_UPSTREAM_PASSWORD}
   tls:
     ca_file: /path/to/venue-ca.pem       # omit to use system roots
-    server_name: fix-uat.example.com     # must match the venue certificate
+    server_name: fix.example.com         # must match the venue certificate
     # cert_file: /path/to/client-cert.pem # if the venue requires mTLS
     # key_file: /path/to/client-key.pem
 downstream:

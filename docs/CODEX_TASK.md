@@ -15,7 +15,7 @@ The per-client subscriber task and its acceptance checks are tracked in `docs/CO
 
 See docs/IMPLEMENTATION_STATUS.md for completed work, pending tasks, and environment blockers. The phase progress entries below are historical milestone snapshots, not the current outstanding-work list. These decisions supersede conflicting earlier suggestions in the starter specification.
 
-Implement a ready-to-run, open-source, **generic standalone FIX session multiplexer** for nonproduction use. Multiple downstream FIX initiators connect to our FIX acceptor; one upstream FIX initiator connects to a venue's FIX acceptor. Forward downstream application messages upstream and broadcast upstream application messages to currently connected, logged-on downstream FIX sessions. No order ownership database, no `ClOrdID` translation, no WebSocket API, and no dependency on private counterparty code.
+Implement a ready-to-run, open-source, **generic standalone FIX session multiplexer**. Document verified behavior and operational limits; operators decide whether those limits meet their deployment requirements. Do not claim production readiness or certification without evidence. Multiple downstream FIX initiators connect to our FIX acceptor; one upstream FIX initiator connects to a venue's FIX acceptor. Forward downstream application messages upstream and broadcast upstream application messages to currently connected, logged-on downstream FIX sessions. No order ownership database, no `ClOrdID` translation, no WebSocket API, and no dependency on private counterparty code.
 
 Use **Go + QuickFIX/Go** by default. Although the daemon is language-agnostic to its users, Go makes reuse and review by the existing development team easy. Build a CLI binary and container. Keep business logic separate from the engine adapter so an alternative engine remains possible.
 
@@ -135,7 +135,7 @@ The owner requested a configurable upstream reconnect interval, with a 60-second
 5. Restart with persistent stores: expected session sequence numbers recover, resends work within retained history. Stale retired client cleanup has bounded storage and a documented reset/reprovision step.
 6. Invalid credentials/session ID, disabled clients, oversize messages, queue saturation and store failures fail visibly and safely.
 7. Race detector passes, unit tests cover every row of `docs/TEST_PLAN.md`, and project-owned logic reaches >=90% statement coverage (excluding third-party/generated code). Include an isolated integration-test target; do not include timing-sensitive socket tests in unit coverage claims.
-8. Docs clearly distinguish nonproduction fanout from order routing, FIX replay from offline delivery, and local gateway acceptance from upstream business acceptance.
+8. Docs clearly distinguish message fanout from order ownership routing, FIX replay from offline delivery, and local gateway acceptance from upstream business acceptance.
 9. Reproduction from a clean checkout: documented one-command smoke demo, build and container commands; no proprietary network or credentials needed.
 
 ## Do not implement in v1

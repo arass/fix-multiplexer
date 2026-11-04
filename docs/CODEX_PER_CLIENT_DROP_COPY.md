@@ -1,15 +1,15 @@
 # Codex task: Per-client read-only FIX access and Drop Copy receive filtering
 
 ## Goal
-Extend the **existing** `fix-multiplexer` project to allow **mixed downstream clients** on one upstream FIX session: some clients may send permitted application messages upstream, while others are **read-only** recipients of selected upstream messages (e.g., execution reports / Drop Copy). Make the feature broker-neutral and useful beyond trading UAT.
+Extend the **existing** `fix-multiplexer` project to allow **mixed downstream clients** on one upstream FIX session: some clients may send permitted application messages upstream, while others are **read-only** recipients of selected upstream messages (e.g., execution reports / Drop Copy). Keep the feature broker-neutral.
 
 **This task supersedes the prior `CODEX_DROP_COPY_SUPPORT.md` instruction that read-only must be accomplished solely by setting the global `upstream.app_message_types: []`.** Global deny-all must remain available, but the primary new control is **per-client `read_only`**. Do not replace the existing FIX engine or build a new gateway.
 
-Read `AGENTS.md`, existing source, tests, `config/example.yaml`, README, and documentation before changes. Follow actual repository conventions. Preserve backward compatibility and current nonproduction limitations.
+Read `AGENTS.md`, existing source, tests, `config/example.yaml`, README, and documentation before changes. Follow actual repository conventions. Preserve backward compatibility and current delivery, recovery and security limits.
 
 ## Existing configuration semantics to preserve
 
-- `service.mode: nonproduction` is currently the only supported mode. **Do not broaden production claims.**
+- `service.mode: nonproduction` is currently the only accepted value; preserve configuration compatibility. Describe verified behavior without unsupported deployment claims.
 - `upstream.app_message_types` is the **global** downstream-to-upstream application MsgType allowlist (currently `D,F,G,H,V,x`).
 - `fanout.app_message_types` is the **global** upstream-to-downstream application MsgType allowlist (currently `8,9,j,W,X,Y,y`).
 - `fanout.mode: live-only`: no offline application backlog.
@@ -48,7 +48,7 @@ fanout:
   app_message_types: ["8", "9", "AE"]
 ```
 
-Keep `config/example.yaml` a working UAT example with mixed writable and read-only sessions and local/mock endpoints, without real secrets. The owner consolidated the subscriber example into this file.
+Keep `config/example.yaml` a working local example with mixed writable and read-only sessions and local/mock endpoints, without real secrets. The owner consolidated the subscriber example into this file.
 
 ## Mandatory behavior
 
@@ -84,9 +84,9 @@ Policy changes do not erase messages previously accepted into the upstream FIX s
 
 ## Intended use and limitations
 
-A read-only client is a **subscriber to the messages available on the gateway's existing upstream session**. This does not magically obtain a venue-wide Drop Copy feed: that is available only if the upstream counterparty actually sends it. Mixed writable + read-only clients may be useful for UAT observability, but are **not equivalent** to a venue-provided consolidated Drop Copy feed.
+A read-only client is a **subscriber to the messages available on the gateway's existing upstream session**. A venue-wide Drop Copy feed is available only if the upstream counterparty actually sends it. Mixed writable + read-only clients can observe the shared session's messages; they do not provide a venue-wide consolidated feed by themselves.
 
-Use terminology **"best-effort Drop Copy-style fan-out"** or **"read-only FIX subscriber"** unless the upstream really is a Drop Copy feed. Document that this is not production-certified, not an authoritative audit trail, and does not guarantee complete delivery or offline recovery.
+Use terminology **"best-effort Drop Copy-style fan-out"** or **"read-only FIX subscriber"** unless the upstream really is a Drop Copy feed. Document that this is not an authoritative audit trail and does not guarantee complete delivery or offline recovery. Make no unsupported certification claims.
 
 ## Tests required
 
@@ -118,7 +118,7 @@ Write focused unit tests of all added branches plus real FIX-session integration
 4. Verify admin heartbeats, TestRequests, ResendRequests and reconnects work for read-only and writable sessions; forbidden application messages never appear after reconnect.
 5. Disconnect RISK, generate upstream execution reports, reconnect RISK: no invented offline application backlog; reports previously sent on its FIX session can be recovered according to existing session store/resend rules.
 6. Restart gateway with persistent stores: read-only restrictions remain effective immediately upon reconnect, with no temporary fail-open path.
-7. Invalid config fails startup before accepting application traffic. Existing unmodified UAT config continues to behave identically.
+7. Invalid config fails startup before accepting application traffic. Existing unmodified config continues to behave identically.
 8. If runtime reload exists, cover read-only <-> writable transitions, concurrent sends and atomic policy application.
 
 Use deterministic synchronization where possible. Run `go test ./...`, `go test -race ./...`, `go vet ./...`, lint and documented integration tests. Maintain the existing coverage gate, and add unit coverage of all new logic rather than relying solely on integration coverage.

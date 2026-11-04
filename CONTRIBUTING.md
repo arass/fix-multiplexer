@@ -1,6 +1,6 @@
 # Contributing
 
-Contributions are welcome from users of any FIX venue, engine or technology stack. Please keep the core vendor-neutral and focused on development/UAT.
+Contributions are welcome from users of any FIX venue, engine or technology stack. Please keep the core vendor-neutral and focused on FIX session sharing and application-message forwarding.
 
 Contributions intentionally submitted for inclusion are subject to the project's [Apache 2.0 license](LICENSE), unless a separate agreement applies. Submit only work you have the right to contribute, and retain applicable third-party notices.
 
@@ -12,7 +12,7 @@ Contributions intentionally submitted for inclusion are subject to the project's
 
 Security-sensitive issues: use a private maintainer disclosure channel once the repository has one configured, rather than posting credentials, logs or vulnerabilities publicly.
 
-The software is for nonproduction use. Do not submit claims of guaranteed order delivery, perfect replay or venue certification without independently reproducible evidence.
+Describe verified behavior and its limits. Claims about delivery, replay, deployment suitability or venue certification need independently reproducible evidence.
 
 From the repository root, with Go 1.23 or newer:
 

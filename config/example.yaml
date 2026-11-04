@@ -4,7 +4,7 @@
 # See README.md for setup, TLS, credentials, and the current local security limitation.
 service:
   name: fix-multiplexer
-  mode: nonproduction # the only supported mode
+  mode: nonproduction # required compatibility value; see docs/CONFIGURATION.md
   bind: 127.0.0.1 # validated loopback address; FIX listener is set under downstream
   health_bind: 127.0.0.1:8081 # local /live, /ready and /metrics; use "" to disable
   max_message_bytes: 1048576 # maximum bytes per message, up to 1 MiB

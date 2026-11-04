@@ -2,9 +2,13 @@
 
 ## Current state
 
+Documentation describes session sharing without repeated UAT labels or blanket deployment restrictions. Operators assess suitability against the documented delivery, recovery and security limits; no production-readiness or certification claim is made. Agent and contributor guidance follows the same policy. Runtime behavior is unchanged, including the required `service.mode: nonproduction` compatibility value.
+
+Wording-cleanup verification: 51 relative documentation links and `git diff --check` passed. Native `go fmt ./...`, `go vet ./...`, `go test ./...` and configuration validation passed. The Docker test target passed formatting, vet, short coverage, the coverage gate, race-enabled integration and routing soak (config 99.3%, gateway 99.1%, fixadapter 90.4%, sessions 100%, retention 92.6%). The Compose smoke demo was attempted twice afterward but could not start because Docker returned HTTP 500 engine API errors; an engine-info check also returned that error. Container smoke remains unverified for this change.
+
 The GitHub interoperability fixture timed out at initialization; the log did not identify the missing logon. Starting the mock acceptor late reproduced the same failure when the gateway used its 60-second default retry. The fixture now explicitly uses a one-second reconnect interval, and both ordinary and delayed local runs pass; the actual default remains 60 seconds. The config regression and Docker test target passed. GitHub Actions run 17 passed unit, race integration, container, routing soak and interoperability after the fix; the optional manual socket soak was skipped.
 
-README documents FIX Drop Copy and read-only subscribers, UAT session sharing and QuickFIX/Go examples. It links to the example configuration and relevant source files, and explains live-only delivery and the limits of the upstream feed. Local link targets and whitespace were checked.
+README documents FIX Drop Copy and read-only subscribers, session sharing and QuickFIX/Go examples. It links to the example configuration and relevant source files, and explains live-only delivery and the limits of the upstream feed. Local link targets and whitespace were checked.
 
 The manual-only GHCR workflow published `ghcr.io/arass/fix-multiplexer:v0.1.0` after its Docker test and smoke gates passed. README and Docker setup now explain pulling the published version as well as building locally. Package visibility remains independently controlled in GHCR settings; verify anonymous pulls before advertising it as public. The workflow does not publish automatically, change visibility, create Git tags or integrate Docker Hub.
 

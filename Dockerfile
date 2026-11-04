@@ -16,7 +16,7 @@ RUN go test -race -tags=soak ./internal/gateway -run TestRoutingSoak -timeout=60
 
 FROM gcr.io/distroless/static-debian12:nonroot
 LABEL org.opencontainers.image.title="FIX Multiplexer" \
-      org.opencontainers.image.description="FIX session multiplexer for development and UAT" \
+      org.opencontainers.image.description="FIX 4.4 session multiplexer and application gateway" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.vendor="Informed Technology Business Solutions LLC"
 WORKDIR /app

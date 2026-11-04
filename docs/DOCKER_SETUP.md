@@ -1,6 +1,6 @@
-# Docker setup for development and UAT
+# Docker setup
 
-This guide runs one FIX Multiplexer container with one upstream FIX 4.4 session and separate downstream sessions for developer clients. The image is a Linux image; on Windows, Docker Desktop must be running in Linux-container mode. The gateway is for nonproduction testing with trusted participants and permitted test data. Its security review is incomplete.
+This guide runs one FIX Multiplexer container with one upstream FIX 4.4 session and separate downstream client sessions. The image is a Linux image; on Windows, Docker Desktop must be running in Linux-container mode. Review the [delivery and security limitations](../README.md#limitations-and-security) when planning a deployment.
 
 For a shared server, install and run one container on that server. Developers connect from their own machines to the server; they do not each need to run the container. The server can accept connections over the internet when its public address, Docker port mapping, and firewalls are configured as described below.
 
@@ -40,12 +40,12 @@ docker load -i .\fix-multiplexer.tar
 
 ## Configure the gateway
 
-Copy `example.yaml` to `local.yaml` and edit the copy. Obtain the counterparty's UAT host, port, assigned FIX identities, credentials and TLS requirements. Agree on initial sequence numbers and supported message types with the counterparty.
+Copy `example.yaml` to `local.yaml` and edit the copy. Obtain the counterparty's host, port, assigned FIX identities, credentials and TLS requirements. Agree on initial sequence numbers and supported message types with the counterparty.
 
 - Set `upstream.host`, `upstream.port`, `upstream.sender_comp_id`, and `upstream.target_comp_id`. A host of `127.0.0.1` refers to the container itself; for a service on the Docker Desktop host, use `host.docker.internal`.
 - Set `downstream.listen: 0.0.0.0:9879` to accept connections through Docker's published port. Set `downstream.target_comp_id` to the gateway identity that clients will use as their TargetCompID.
 - Add a distinct `sender_comp_id` and password reference for each enabled client. A password reference is required for every enabled client when the listener is non-loopback. Each client sends its password in FIX Logon tag 554.
-- Check the upstream and fanout application message type lists against the messages required for testing. See [configuration](CONFIGURATION.md) for defaults and details.
+- Check the upstream and fanout application message type lists against the messages your applications require. See [configuration](CONFIGURATION.md) for defaults and details.
 - Optionally set `read_only: true` or a `receive_message_types` list for individual clients; see the [example configuration](../config/example.yaml). Receive filters do not isolate orders belonging to different clients.
 - Keep `upstream.store_dir: ./state/upstream` and `downstream.store_dir: ./state/downstream` for the commands below. Relative paths resolve from `/app` in the container.
 - Use environment or mounted file references for credentials; do not put credential values in YAML. Configure TLS as required, and mount referenced certificates, keys, secret files, or custom dictionaries at the paths used in the config. They must be readable by the nonroot container user.
@@ -88,7 +88,7 @@ docker run -d --name fix-multiplexer `
   $Image -config /app/config/local.yaml
 ```
 
-Add an `-e VARIABLE_NAME` for every environment credential referenced by the config. Add read-only mounts for any referenced certificates or secret files. Ensure the named volume is writable by the image's nonroot user. Preserve the volume across restarts: it contains FIX sequence state and replay history. Do not delete or reset it without coordinating session recovery with peers. Protect it as sensitive test data.
+Add an `-e VARIABLE_NAME` for every environment credential referenced by the config. Add read-only mounts for any referenced certificates or secret files. Ensure the named volume is writable by the image's nonroot user. Preserve the volume across restarts: it contains FIX sequence state and replay history. Do not delete or reset it without coordinating session recovery with peers. Protect it as sensitive data.
 
 Check startup with `docker logs fix-multiplexer`. After editing the mounted config, restart the container with `docker restart fix-multiplexer` to load changes. If environment variables or Docker mount/port options change, recreate the container with updated options while retaining the named volume.
 

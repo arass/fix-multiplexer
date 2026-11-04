@@ -1,6 +1,6 @@
-# Local development operations
+# Operations and recovery
 
-The gateway is a nonproduction tool for mutually trusted participants. The management listener requires loopback. A non-loopback downstream FIX listener requires a password for every enabled client; TLS is optional and the example remains loopback-only. Without TLS, FIX passwords and messages are exposed to the network path; use an encrypted VPN and restrict access. By default, logged-on clients see globally allowed upstream broadcasts; optional per-client filters narrow delivery by message type, not order ownership. Local engine acceptance is not venue acceptance, and no exactly-once guarantee is made.
+The gateway requires mutually trusted participants. The management listener requires loopback. A non-loopback downstream FIX listener requires a password for every enabled client; TLS is optional and the example remains loopback-only. Without TLS, FIX passwords and messages are exposed to the network path; use an encrypted VPN and restrict access. By default, logged-on clients see globally allowed upstream broadcasts; optional per-client filters narrow delivery by message type, not order ownership. Local engine acceptance is not venue acceptance, and no exactly-once guarantee is made.
 
 For network access use an encrypted VPN restricted to trusted developers and a distinct strong FIX Logon password per client. If TLS is enabled, provision a server certificate clients verify. SenderCompID identifies the session; tag 554 is checked against that client's password. A separate tag 553 is not currently checked. No per-IP authentication rate limiting is implemented, and security review is incomplete. Generic engine-error and failed-password logs share a global limit of one per second; the next emitted error includes the combined `suppressed_errors` count. Their separate metrics count every event. Other log types are not rate-limited. Set log retention and storage limits in the log collector. Docker port publication and the listener bind address must both be configured for the intended network; keep management private.
 
@@ -41,7 +41,7 @@ go run ./cmd/fix-multiplexer -reset-client DEV_A -dry-run=false
 
 Prune eligibility requires an inactive client whose last disconnect is at least `inactive_client_ttl` ago. Active/unknown sessions are untouched. Retirement is persisted outside the removed per-session directory; restart cannot resurrect a pruned session. Disabled clients are not provisioned by the engine. Only configured downstream clients are selected; upstream state is never pruned by this command.
 
-Store directories are hash-named beneath the configured roots. Metadata contains connection/retirement state, not FIX payloads. File-store bodies contain business messages for FIX resend and should be protected as sensitive test data. Root ownership is restricted when creating new directories; do not reuse an insecure shared directory.
+Store directories are hash-named beneath the configured roots. Metadata contains connection/retirement state, not FIX payloads. File-store bodies contain business messages for FIX resend and should be protected as sensitive data. Root ownership is restricted when creating new directories; do not reuse an insecure shared directory.
 
 New outgoing FIX Logon records retain only session header and sequence metadata; the original Logon and its credentials are still sent to the peer. Stores and backups created by older versions may still contain Logon credentials in plaintext. Do not delete or reset those stores without coordinating session state. Restrict access to all stores and backups and use encrypted storage as appropriate: application messages and other session data remain sensitive. Metadata-only logging does not sanitize durable FIX stores. See SECURITY_REVIEW.md.
 
@@ -79,4 +79,4 @@ Application sends admitted to the engine's internal queues are capped at 2MiB pe
 
 Default logs emit JSON timestamps, hashed session identity, direction, MsgType, sequence and outcome. They omit all body values, credential/custom sensitive tags, raw frames and untrusted engine error interpolation. Store payloads remain sensitive even though logs are metadata only. The built-in lint gate is go vet with the pinned CI Go version, plus gofmt; no external linter is claimed.
 
-See TEST_STATUS.md and IMPLEMENTATION_STATUS.md for current acceptance gaps rather than treating these operations as a production or release guarantee.
+See [test status](TEST_STATUS.md) and [implementation status](IMPLEMENTATION_STATUS.md) for verified scenarios and remaining acceptance gaps.

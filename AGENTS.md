@@ -9,7 +9,7 @@ Read `docs/CODEX_TASK.md`, `docs/ARCHITECTURE.md`, `docs/TEST_PLAN.md`, and `REA
 3. **No `ClOrdID` rewriting or order-affinity state in default mode.** Broadcast upstream application messages to all currently logged-on, allowlisted downstream sessions. Collision risks must be documented.
 4. **Default to live-only downstream fanout.** No offline application queue. Once a message has been assigned a live downstream session sequence number, its replay history is governed by that session's message store. Never conflate offline delivery with FIX resend.
 5. **Never silently drop outbound orders when upstream is unavailable or forwarding fails.** Return an explicit protocol-appropriate or operational error; test the chosen behavior. Avoid falsely signaling order acceptance or guaranteeing exactly-once delivery.
-6. **No production promises.** This is a UAT/development tool. Fail closed on unknown clients, invalid configuration, unacceptable resource consumption and incompatible FIX versions.
+6. **Document capabilities and limits accurately.** Deployment is an operator decision; do not claim production readiness or certification without evidence. Fail closed on unknown clients, invalid configuration, unacceptable resource consumption and incompatible FIX versions.
 7. **Secrets and PII.** No real customer data, upstream credentials, private keys, or unredacted message content in tests, examples, issues, or CI logs. Redact FIX credential tags and support metadata-only logging by default.
 8. **Don't modify or depend on any private counterparty-specific project.** It may be used for independent compatibility testing only if its owner explicitly provides it and license rights permit.
 9. **Minimize hidden global state.** Use dependency injection for FIX session sender, session registry, clock, durable store, config, and shutdown hooks. Prefer deterministic tests.
@@ -29,7 +29,7 @@ Read `docs/CODEX_TASK.md`, `docs/ARCHITECTURE.md`, `docs/TEST_PLAN.md`, and `REA
 
 ## Pull request checklist
 
-- [ ] Behavior and nonproduction limitations documented.
+- [ ] Behavior and operational limitations documented.
 - [ ] Tests for happy path, recovery, failures, security boundaries, concurrency and cleanup.
 - [ ] No broker-specific data or secrets introduced.
 - [ ] Race detector and lint checks pass.

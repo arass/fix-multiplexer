@@ -26,7 +26,7 @@ The adapter reconstructs application bodies through QuickFIX/Go and sends a new 
 
 ### Recipient filtering and visibility
 
-By default, globally allowed messages go to every authorized logged-on downstream session. Optional per-client receive lists narrow this by MsgType, but do not distinguish who owns an order. Clients receiving a type can see messages of that type concerning other clients and should handle unknown orders. Use mutually trusted test environments. The global `fanout.deny_message_types` also applies to downstream-to-upstream submissions, in addition to fanout.
+By default, globally allowed messages go to every authorized logged-on downstream session. Optional per-client receive lists narrow this by MsgType, but do not distinguish who owns an order. Clients receiving a type can see messages of that type concerning other clients and should handle unknown orders. Use mutually trusted participants. The global `fanout.deny_message_types` also applies to downstream-to-upstream submissions, in addition to fanout.
 
 ### Concurrent messages and order
 
@@ -60,7 +60,7 @@ Current policy:
 - Explicit offline maintenance can retire and clean up **only closed** sessions past their TTL; cleanup is not automatic. Reuse requires coordinated reset or a new SessionID.
 - Alert at disk thresholds; if limits are exhausted for an active client, fail visibly rather than quietly deleting the resend store.
 - Support explicit admin `list-clients`, `disable-client` and `prune-stale --dry-run` operations or equivalent config-driven offline maintenance. Audit cleanup actions.
-- Document upstream store treatment separately: one upstream session can have a much longer resend requirement than downstream UAT sessions; never auto-prune it on the downstream client TTL.
+- Document upstream store treatment separately: one upstream session can have a much longer resend requirement than downstream sessions; never auto-prune it on the downstream client TTL.
 
 ## Readiness
 

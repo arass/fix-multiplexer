@@ -3,11 +3,11 @@
 This document records the current GitHub publishing setup. Repository visibility and package visibility are separate; verify the GHCR package's access settings before directing users to pull it.
 
 - Repository name: `fix-multiplexer`
-- Suggested description: `FIX 4.4 gateway in Go with QuickFIX/Go. Share one UAT session across clients, add read-only Drop Copy subscribers, or learn from a runnable Docker example.`
+- Suggested description: `FIX 4.4 gateway in Go with QuickFIX/Go. Share one upstream session across clients, add read-only FIX subscribers, or learn from a runnable Docker example.`
 - Website: `https://www.itbsllc.com/`
 - Suggested topics: `fix-protocol`, `fixprotocol`, `fix-multiplexer`, `fix-proxy`, `fix-gateway`, `quickfix`, `quickfixgo`, `go`, `golang`, `fix44`, `drop-copy`, `fix-initiator`, `fix-acceptor`, `trading-systems`, `financial-markets`, `fintech`, `uat`, `fix-testing`, `docker`.
 - License: Apache-2.0 for first-party work, subject to preserved third-party terms and review.
-- Social preview idea: several independent FIX clients connecting through one gateway to one counterparty; label the tool nonproduction and avoid invented product screenshots.
+- Social preview idea: several independent FIX clients connecting through one gateway to one counterparty; show the actual session topology and avoid invented product screenshots.
 
 The description and topics above are recommendations; this document does not apply them to GitHub. Edit them through the repository's **About** settings. GitHub's default repository search uses the name, description and topics; README content is searchable with `in:readme`. See [repository search](https://docs.github.com/en/search-github/searching-on-github/searching-for-repositories) and [repository topics](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/classifying-your-repository-with-topics). Use terms that describe the implemented behavior and intended audience.
 
