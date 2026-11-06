@@ -4,10 +4,10 @@ permissions:
   contents: read
 jobs:
   unit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.27.3'
       - run: test -z "$(gofmt -l cmd internal scripts)"
@@ -16,40 +16,40 @@ jobs:
       - run: go run ./scripts/check-coverage.go coverage.out
       - run: go test -race ./...
   integration:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.27.3'
       - run: go test -race -tags=integration ./...
   container:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build -t fix-multiplexer .
       - run: docker run --rm fix-multiplexer -check-config
       - run: docker run --rm fix-multiplexer -demo
       - run: docker compose -f examples/docker-compose.yml up --build --abort-on-container-exit --exit-code-from smoke
   soak:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.27.3'
       - run: go test -race -tags=soak ./internal/gateway -run TestRoutingSoak -timeout=60s
   interoperability:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build -f interop/quickfixj/Dockerfile -t fix-multiplexer-interop .
       - run: docker run --rm --network none --memory 512m fix-multiplexer-interop
   socket-soak:
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build --target build -t fix-multiplexer-build .
       - run: docker run --rm --network none --tmpfs /tmp:exec,size=512m --memory 1g fix-multiplexer-build go test -race -tags=integration,socketsoak ./internal/fixadapter -run TestSocketSoak -timeout=21m -v

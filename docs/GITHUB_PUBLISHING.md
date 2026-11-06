@@ -2,6 +2,8 @@
 
 This document records the current GitHub publishing setup. Repository visibility and package visibility are separate; verify the GHCR package's access settings before directing users to pull it.
 
+CI and publishing jobs use the explicit `ubuntu-24.04` runner label, avoiding the rolling Ubuntu 26.04 migration of `ubuntu-latest` described in [GitHub's runner notice](https://github.com/actions/runner-images/issues/14748). Checkout and Go setup use `actions/checkout@v7` and `actions/setup-go@v7`; both declare the Node 24 runtime in their [checkout metadata](https://github.com/actions/checkout/blob/v7/action.yml) and [setup-go metadata](https://github.com/actions/setup-go/blob/v7/action.yml). The project's Go version remains explicitly pinned in CI, and image publication remains manual.
+
 - Repository name: `fix-multiplexer`
 - Suggested description: `FIX 4.4 gateway in Go with QuickFIX/Go. Share one upstream session across clients, add read-only FIX subscribers, or learn from a runnable Docker example.`
 - Website: `https://www.itbsllc.com/`
