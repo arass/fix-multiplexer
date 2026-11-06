@@ -2,18 +2,22 @@
 
 This checkpoint records executed coverage, not a claim that every variant of every test-plan row has shipped. Fast coverage excludes tagged real-socket integration and soak runs. The core package coverage gate requires at least 90% statement coverage for config, gateway, fixadapter, sessions and retention.
 
+Current source-IP feature checks passed natively: formatting, vet, unit tests, short coverage/gate, configuration validation and the full tagged FIX integration suite. Coverage: config 99.4%, gateway 97.3%, fixadapter 90.7%, sessions 100%, retention 91.1%; observability 100%. Race verification for this change is blocked: native Windows testing reports that cgo is required, and the Docker test target cannot connect because the engine returns HTTP 500, including after starting Docker Desktop. The Compose smoke command also failed at the engine API before any container started. Prior Linux race/container evidence below is historical, not verification of this feature.
+
 ## Unit evidence
 
 | Test plan | Evidence |
 |---|---|
 | U01–U02 | Config table: malformed/unknown/oversized YAML, endpoints, identity, limits, versions, secrets and retention validation. |
 | U03 | Registry authorization/disable/generation tests; transport duplicate binding and connection budget tests. |
+| U03a | IP policy syntax/list bounds, normalization, YAML omitted/empty preservation, matching for IPv4/IPv6/mapped IPv4 and range boundaries, missing socket source, client isolation, duplicate binding, reconnect, disabled clients, independent compiled policy and concurrent denial tests. |
 | U04–U06 | Core forwarding/fanout fakes; adapter business-ID and independent-copy tests. |
 | U07–U08 | Nested groups, duplicate values, customized dictionary order, scalar extensions, encoded text, raw wire round-trip and session-header isolation. Embedded-SOH EncodedText is explicitly unsupported. |
 | U09–U10 | Administrative MsgType exclusion, allow/deny policy and callback routing tests. |
 | U11–U14 | Outage errors, failed recipient, slow consumer, queue/byte budget, serialized upstream worker and per-session workers. |
 | U15 | Concurrent registry and queue-credit tests; full Linux race runs include real sockets. |
 | U16–U17 | HTTP health/metrics table, readiness-store health, metadata logger and interpolated-secret suppression tests. |
+| U17a | IP diagnostics verify raw observed address, hashed claimed-session identity, fixed reason, independent log throttling, suppression summary and exact concurrent denial counts. |
 | U18–U21 | Fake-clock TTL, active-session protection, offline leases, dry-run, persistent retirement, corruption/budget/metadata failures, reset and cleanup lifecycle regressions. |
 | U22 | Valid inbound PossDup forwarded; outbound ToApp replay never routes; replay cannot be rejected merely for queue credit. |
 
@@ -27,6 +31,7 @@ This checkpoint records executed coverage, not a claim that every variant of eve
 | I08 | Graceful persistent restart plus subprocess hard kill; conservative stale-lease recovery and increasing restored sequences. |
 | I09 | Real upstream disconnect, not-ready and gateway-identified standard FIX BusinessMessageReject. |
 | I10 | Unknown CompID, verified upstream hostname, downstream mTLS success/failure, and configured-client password success/failure over both plaintext and TLS sockets. Additional combined authentication variants remain useful. |
+| I10a | Local plaintext/TLS sockets verify matching and mismatched IP policies, explicit deny-all, password enforcement for matching sources, denied sockets closed before Logon, unconsumed session sequences and diagnostic/counter output. Durable restart/resend test now uses an allowed source policy across reconnect/restart. No public-host testing is implied. |
 | I11 | Upstream session Reject generates a new diagnostic `j` for two live FIX clients, bypassing an ordinary `j` deny policy and omitting downstream RefSeqNum. |
 | I11a | Real oversize transport disconnect; connection count, byte limits, slow consumer and queue saturation tested with controlled transports/fakes. Sustained socket backpressure stress remains open. |
 | I12 | Defaults disable daily/logon/logout/disconnect resets; explicit offline reset and retirement enforced. Custom daily schedules are not exposed in v1. |

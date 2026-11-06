@@ -70,21 +70,26 @@ type Client struct {
 	Sender              string   `yaml:"sender_comp_id"`
 	Disabled            bool     `yaml:"disabled"`
 	Password            Secret   `yaml:"password"`
+	AllowedIPs          []string `yaml:"allowed_ips"`
 	ReadOnly            bool     `yaml:"read_only"`
 	ReceiveMessageTypes []string `yaml:"receive_message_types"`
 }
 
-// MarshalYAML preserves the distinction between an inherited receive policy
-// (nil) and an explicit empty list when configurations are serialized.
+// MarshalYAML preserves omitted versus explicit empty lists for both receive
+// policy and source IP restrictions when configurations are serialized.
 func (c Client) MarshalYAML() (any, error) {
 	type clientYAML struct {
 		Sender              string    `yaml:"sender_comp_id"`
 		Disabled            bool      `yaml:"disabled"`
 		Password            Secret    `yaml:"password"`
+		AllowedIPs          *[]string `yaml:"allowed_ips,omitempty"`
 		ReadOnly            bool      `yaml:"read_only"`
 		ReceiveMessageTypes *[]string `yaml:"receive_message_types,omitempty"`
 	}
 	v := clientYAML{Sender: c.Sender, Disabled: c.Disabled, Password: c.Password, ReadOnly: c.ReadOnly}
+	if c.AllowedIPs != nil {
+		v.AllowedIPs = &c.AllowedIPs
+	}
 	if c.ReceiveMessageTypes != nil {
 		v.ReceiveMessageTypes = &c.ReceiveMessageTypes
 	}
@@ -226,6 +231,9 @@ func (c Config) Validate() error {
 			return invalid("downstream clients must have distinct safe CompIDs")
 		}
 		seen[cl.Sender] = true
+		if _, err := cl.IPPrefixes(); err != nil {
+			return invalid("client allowed_ips must contain at most 128 distinct IP addresses or CIDR ranges without zones")
+		}
 		seenTypes := make(map[string]bool)
 		for _, typ := range cl.ReceiveMessageTypes {
 			if !msgType.MatchString(typ) || IsAdmin(typ) || seenTypes[typ] {

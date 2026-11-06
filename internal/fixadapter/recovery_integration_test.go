@@ -40,6 +40,7 @@ func TestPersistentRestartAndIndependentResend(t *testing.T) {
 	}
 	defer muxListener.Close()
 	c := runtimeConfig(t)
+	c.Downstream.Clients[0].AllowedIPs = []string{"127.0.0.1"}
 	_, port, _ := net.SplitHostPort(venueListener.Addr().String())
 	c.Upstream.Port, _ = strconv.Atoi(port)
 	c.Downstream.Listen = muxListener.Addr().String()

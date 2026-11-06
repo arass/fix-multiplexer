@@ -6,6 +6,8 @@ Per-client subscriber policies apply only to application routing. A read-only cl
 
 Each downstream client has a distinct FIX session with the multiplexer (acceptor). The multiplexer has exactly one upstream FIX session (initiator). The daemon terminates FIX at both boundaries: its application layer forwards business messages but **never** tunnels FIX admin frames or upstream sequence numbers downstream.
 
+Optional per-client `allowed_ips` is checked against the TCP peer IP in the engine's connection validator, before session binding or Logon processing. Omission leaves source IP unrestricted; an empty list denies all sources. Unknown/disabled clients cannot obtain a binding, and an IP-policy denial cannot occupy another connection's session binding or consume FIX sequence numbers. Password authentication still runs for permitted sources. The gateway closes denied sockets and emits a rate-limited diagnostic with the observed IP and hashed claimed-session label; it does not trust a source address supplied inside FIX traffic. See [configuration](CONFIGURATION.md#per-client-source-ip-restrictions).
+
 ## Message handling and boundaries
 
 Confirmed policy: deliver valid inbound PossDup application messages; the flag is not a reason to discard them. Outbound replay callbacks must not initiate a second routing operation. Duplicate business delivery remains possible and clients must tolerate it.

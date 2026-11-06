@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"sync"
 	"testing"
@@ -82,7 +83,7 @@ func TestAuthenticationFailuresShareErrorLogLimit(t *testing.T) {
 }
 
 func TestHealthAndMetrics(t *testing.T) {
-	s := Snapshot{Ready: false, Forwarded: 2, Failed: 3, Dropped: 4, Recipients: 5, Replays: 6, EngineErrors: 7, AuthFailures: 9, Cleanups: 8, QueueBytes: 9, QueueDepth: 10, StoreBytes: 11, StoreWarning: true, Sessions: []Session{{ID: "secret-id", LoggedOn: true, Enabled: true}}}
+	s := Snapshot{Ready: false, Forwarded: 2, Failed: 3, Dropped: 4, Recipients: 5, Replays: 6, EngineErrors: 7, AuthFailures: 9, IPDenials: 12, Cleanups: 8, QueueBytes: 9, QueueDepth: 10, StoreBytes: 11, StoreWarning: true, Sessions: []Session{{ID: "secret-id", LoggedOn: true, Enabled: true}}}
 	h := Handler(ProviderFunc(func() Snapshot { return s }))
 	for _, tt := range []struct {
 		path, method string
@@ -100,6 +101,9 @@ func TestHealthAndMetrics(t *testing.T) {
 		if tt.path == "/metrics" && tt.method == "GET" && !strings.Contains(w.Body.String(), "fix_mux_auth_failures_total 9") {
 			t.Fatal("authentication failure metric missing")
 		}
+		if tt.path == "/metrics" && tt.method == "GET" && !strings.Contains(w.Body.String(), "fix_mux_ip_denials_total 12") {
+			t.Fatal("IP denial metric missing")
+		}
 	}
 	s.Ready = true
 	s.StoreWarning = false
@@ -113,5 +117,42 @@ func TestHealthAndMetrics(t *testing.T) {
 	h.ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
 	if !strings.Contains(w.Body.String(), "fix_mux_ready 1") || !strings.Contains(w.Body.String(), "fix_mux_store_warning 0") {
 		t.Fatal(w.Body.String())
+	}
+}
+
+func TestIPDenialLogsIncludeSourceAndBoundFloods(t *testing.T) {
+	var out bytes.Buffer
+	r := New(&out)
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	r.now = func() time.Time { return now }
+	r.EngineError("unrelated-session")
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r.IPDenied("synthetic-sensitive-session", netip.MustParseAddr("::ffff:192.0.2.1"))
+		}()
+	}
+	wg.Wait()
+	if r.IPDenials.Load() != 100 || strings.Count(out.String(), "\n") != 2 {
+		t.Fatal("denial flood was not bounded independently of engine errors")
+	}
+	now = now.Add(time.Second)
+	r.IPDenied("synthetic-sensitive-session", netip.MustParseAddr("2001:db8::1%test"))
+	now = now.Add(-time.Minute)
+	r.IPDenied("synthetic-sensitive-session", netip.Addr{})
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 4 || r.IPDenials.Load() != 102 || strings.Contains(out.String(), "synthetic-sensitive-session") || strings.Contains(out.String(), "%test") {
+		t.Fatal("IP diagnostics lost events or leaked identity/zone")
+	}
+	for i, want := range []struct {
+		source     string
+		suppressed float64
+	}{{"192.0.2.1", 0}, {"2001:db8::1", 99}, {"unknown", 0}} {
+		var event map[string]any
+		if json.Unmarshal([]byte(lines[i+1]), &event) != nil || event["msg"] != "connection_ip_denied" || event["source_ip"] != want.source || event["suppressed_denials"] != want.suppressed || event["reason"] != "source IP not in client allowed_ips" || event["session"] != Label("synthetic-sensitive-session") {
+			t.Fatal("incorrect denial diagnostic")
+		}
 	}
 }

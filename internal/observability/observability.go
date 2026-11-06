@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,11 +18,15 @@ import (
 type Recorder struct {
 	log                                *slog.Logger
 	Replay, EngineErrors, AuthFailures atomic.Uint64
+	IPDenials                          atomic.Uint64
 	Errors                             chan struct{}
 	errorMu                            sync.Mutex
 	lastErrorLog                       time.Time
 	suppressedErrors                   uint64
 	now                                func() time.Time
+	ipMu                               sync.Mutex
+	lastIPLog                          time.Time
+	suppressedIPDenials                uint64
 }
 
 func New(w io.Writer) *Recorder {
@@ -49,6 +54,27 @@ func (r *Recorder) AuthenticationFailure(id string) {
 	r.AuthFailures.Add(1)
 	r.errorEvent("authentication_failed", id, "invalid credentials")
 }
+
+// IPDenied logs only an OS-observed IP and hashed session identity. Its separate
+// global limit keeps engine errors from hiding the first IP-policy diagnostic.
+func (r *Recorder) IPDenied(id string, source netip.Addr) {
+	r.IPDenials.Add(1)
+	r.ipMu.Lock()
+	defer r.ipMu.Unlock()
+	now := r.now()
+	if !r.lastIPLog.IsZero() && !now.Before(r.lastIPLog) && now.Sub(r.lastIPLog) < time.Second {
+		r.suppressedIPDenials++
+		return
+	}
+	ip := "unknown"
+	if source.IsValid() {
+		ip = source.Unmap().WithZone("").String()
+	}
+	r.log.Warn("connection_ip_denied", "session", Label(id), "source_ip", ip,
+		"reason", "source IP not in client allowed_ips", "suppressed_denials", r.suppressedIPDenials)
+	r.suppressedIPDenials = 0
+	r.lastIPLog = now
+}
 func (r *Recorder) errorEvent(event, id, detail string) {
 	// Bound unauthenticated error-log floods while keeping every event in its
 	// metric. Summarize suppressed events on the next emitted error.
@@ -74,6 +100,7 @@ type Snapshot struct {
 	Blocked                                                                               uint64
 	Ready                                                                                 bool
 	Forwarded, Failed, Dropped, Recipients, Replays, EngineErrors, AuthFailures, Cleanups uint64
+	IPDenials                                                                             uint64
 	QueueBytes, QueueDepth, StoreBytes                                                    int64
 	EngineQueueBytes                                                                      int64
 	StoreWarning                                                                          bool
@@ -118,7 +145,7 @@ func Handler(p Provider) http.Handler {
 		for _, v := range []struct {
 			name  string
 			value uint64
-		}{{"forwarded_total", s.Forwarded}, {"failed_total", s.Failed}, {"blocked_total", s.Blocked}, {"dropped_total", s.Dropped}, {"fanout_recipients_total", s.Recipients}, {"replays_total", s.Replays}, {"engine_errors_total", s.EngineErrors}, {"auth_failures_total", s.AuthFailures}, {"cleanup_total", s.Cleanups}} {
+		}{{"forwarded_total", s.Forwarded}, {"failed_total", s.Failed}, {"blocked_total", s.Blocked}, {"dropped_total", s.Dropped}, {"fanout_recipients_total", s.Recipients}, {"replays_total", s.Replays}, {"engine_errors_total", s.EngineErrors}, {"auth_failures_total", s.AuthFailures}, {"ip_denials_total", s.IPDenials}, {"cleanup_total", s.Cleanups}} {
 			fmt.Fprintf(w, "fix_mux_%s %d\n", v.name, v.value)
 		}
 		fmt.Fprintf(w, "fix_mux_queue_bytes %d\nfix_mux_queue_depth %d\nfix_mux_store_bytes %d\nfix_mux_ready %d\nfix_mux_store_warning %d\n", s.QueueBytes, s.QueueDepth, s.StoreBytes, boolean(s.Ready), boolean(s.StoreWarning))

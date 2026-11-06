@@ -11,6 +11,7 @@ The goal is comprehensive coverage of **our code and guarantees**, not testing Q
 | U01 | Config | Valid sample parses; defaults correct; malformed YAML, missing endpoint, duplicate session IDs, same source/dest IDs, invalid port, empty fanout allowlist, negative TTL, invalid size fail with specific errors. An explicit empty upstream allowlist blocks all submissions. |
 | U02 | Config | Unsupported FIX version combination fails early; unknown settings rejected; secrets are never echoed in errors. |
 | U03 | Identity | Allowed client succeeds; unknown/disabled client denied; duplicate connection policy enforced; SessionID cannot be spoofed via business field. |
+| U03a | Source IP | Omitted versus empty `allowed_ips` survives YAML round trips; validate IP/CIDR syntax, normalization, duplicates and list bounds. Match IPv4, IPv6, mapped IPv4 and range boundaries against socket addresses; fail closed if a restricted source is unavailable. Enforce each client's own policy before binding; denied attempts leave the session free, allowed reconnects work, and concurrent denials are counted safely. |
 | U04 | Routing upstream | Each allowed downstream application type forwarded once to correct upstream; body fields unchanged and original message unmodified. |
 | U05 | Fanout | One upstream message independently cloned to N live sessions; none to offline/disabled sessions; no shared mutable message instance. |
 | U06 | Business IDs | `11`, `41`, `37`, `17` unchanged across both directions; duplicate `ClOrdID` preserved (not rewritten); no order-affinity table. |
@@ -25,6 +26,7 @@ The goal is comprehensive coverage of **our code and guarantees**, not testing Q
 | U15 | Races | Parallel connect/disconnect, message dispatch, shutdown, pruning and health reads do not race; run with Go race detector. |
 | U16 | Metrics | Counters, queue depth, readiness and session gauges reflect events without leaking IDs or sensitive content as labels. |
 | U17 | Logging | Credential fields (`554`, `553`, `96`, etc.) and configured sensitive tags redacted; structured errors contain no raw payload or secrets. |
+| U17a | IP diagnostics | IP-denial logs contain only the observed source IP, hashed claimed-session label and fixed diagnostic fields. Independent rate limit bounds floods and summarizes suppressed denials; metric counts every denial without IP labels. |
 | U18 | Cleanup | Fake clock: idle >= TTL and disconnected cleaned, active or younger untouched; dry-run no deletes; disable and delete idempotent; cleanup audit events emitted. |
 | U19 | Storage failure | Corrupt/unwritable/full store produces safe error/not-ready or session disablement; never silently discards replay data; restart/error path explicit. |
 | U20 | Lifecycle | Graceful shutdown drains or fails bounded pending work explicitly, logs out sessions when feasible, closes stores and stops listeners; repeated shutdown safe. |
@@ -45,6 +47,7 @@ The goal is comprehensive coverage of **our code and guarantees**, not testing Q
 | I08 | Store durability | Kill/restart gateway using a persistent volume and same FIX session schedule; sequences and eligible resend history survive. |
 | I09 | Upstream outage | Drop upstream socket; readiness fails; downstream app sends order and receives explicit documented failure/outcome; reconnect restores service. |
 | I10 | Bad logon | Unknown SenderCompID, wrong target, wrong password where configured, unauthorized address/TLS cert fail; no session created. |
+| I10a | Source IP | Local TCP connections with and without TLS: allowed source still requires the correct password, mismatched/empty IP lists close the socket before Logon and emit the expected diagnostic/counter. Allowed IP policy survives real FIX reconnect and gateway restart with independent replay. Tests use loopback peers, not public hosts. |
 | I11 | Upstream session Reject | A new gateway diagnostic notice reaches each logged-on downstream session even if ordinary `j` fanout is disabled; upstream sequence references never appear as downstream RefSeqNum. |
 | I11a | Limits | Large frame, too many sessions, saturated queue/slow consumer trigger documented safe behavior; healthy other sessions continue. |
 | I12 | Clock and schedules | FIX session daily rollover / reset flag combinations follow documented policies; stale pruned session cannot silently reattach with conflicting seq numbers. |

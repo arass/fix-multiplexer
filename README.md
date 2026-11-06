@@ -12,7 +12,7 @@ Each client has its own FIX session, sequence numbers and resend history. The ga
 - Share one counterparty session across applications, developers or test harnesses.
 - Configure message types globally and per client. A read-only subscriber cannot submit application messages upstream.
 - Receive a best-effort Drop Copy-style feed of messages actually supplied by the counterparty. This is not a venue-wide feed or authoritative audit trail.
-- Use persistent stores, configurable retention, health checks, optional TLS and separate downstream passwords.
+- Use persistent stores, configurable retention, health checks, optional TLS, separate downstream passwords and per-client source IP restrictions.
 
 ## When to use a FIX session multiplexer
 
@@ -73,6 +73,8 @@ Deployment is an operator decision: assess the delivery, recovery and security l
 Clients share the counterparty's business context; messages of an allowed type can include other clients' orders. Use trusted participants and sufficiently unique business IDs. Fanout is live-only: a disconnected client misses new messages, although FIX resend can recover previously assigned messages retained in its session store. Delivery and venue acceptance are not guaranteed. FIX 4.2 and version translation are not supported.
 
 For network access, use distinct per-client FIX passwords and restrict access with a VPN or firewall. TLS is optional; without TLS, messages and passwords are unencrypted on the network path. The security review is incomplete and the gateway has no per-IP login rate limit. See [security review](docs/SECURITY_REVIEW.md) and [configuration](docs/CONFIGURATION.md).
+
+Optionally restrict each client with [`allowed_ips`](docs/CONFIGURATION.md#per-client-source-ip-restrictions), using IP addresses or CIDR ranges. Denied connections log the observed source IP and a hashed session label for troubleshooting; every denial is counted even when repeated log events are suppressed.
 
 ## Documentation
 

@@ -52,9 +52,12 @@ downstream:
   # receive_message_types: ["8"] limits that client to execution reports;
   # omit to inherit the global fanout list, or use [] to receive none.
   # Gateway-generated operational notices and errors are still delivered.
+  # Optional allowed_ips restricts a client to socket source IPs/CIDR ranges.
+  # Omit for no IP restriction; [] denies every source. Passwords still apply.
   clients:
     - sender_comp_id: DEV_A
       # password: {env: FIX_DEV_A_PASSWORD}
+      # allowed_ips: ["192.0.2.10", "2001:db8::/48"] # replace with actual source IPs
     - sender_comp_id: DEV_B
       # password: {env: FIX_DEV_B_PASSWORD}
     - sender_comp_id: DROP_COPY

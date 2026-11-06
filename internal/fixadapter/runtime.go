@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/netip"
 	"sync"
 	"time"
 
@@ -37,6 +38,7 @@ type Runtime struct {
 	Pending           *transport.Pending
 	bridge            *transport.Bridge
 	listenerFactory   quickfix.NewListenerCallback
+	clientIPs         map[string][]netip.Prefix
 }
 
 func New(c config.Config, observer ...*observability.Recorder) (*Runtime, error) {
@@ -80,6 +82,7 @@ func New(c config.Config, observer ...*observability.Recorder) (*Runtime, error)
 	ids := make(map[string]quickfix.SessionID)
 	enabled := make(map[string]bool)
 	policies := make(map[string]gateway.ClientPolicy)
+	clientIPs := make(map[string][]netip.Prefix)
 	var clients []string
 	for id := range u.SessionSettings() {
 		a.Upstream = id
@@ -96,12 +99,17 @@ func New(c config.Config, observer ...*observability.Recorder) (*Runtime, error)
 					return nil, e
 				}
 				a.ClientPasswords[id.String()] = password
+				prefixes, e := cl.IPPrefixes()
+				if e != nil {
+					return nil, e
+				}
+				clientIPs[id.String()] = prefixes
 			}
 		}
 		ids[id.String()] = id
 		clients = append(clients, id.String())
 	}
-	r := &Runtime{Observer: observability.New(io.Discard), storeWarn: c.Retention.DiskWarnBytes}
+	r := &Runtime{Observer: observability.New(io.Discard), storeWarn: c.Retention.DiskWarnBytes, clientIPs: clientIPs}
 	if len(observer) > 0 && observer[0] != nil {
 		r.Observer = observer[0]
 	}
@@ -183,7 +191,7 @@ func (r *Runtime) Start() error {
 		}
 		return r.Transport.Wrap(l), nil
 	})
-	r.acceptor.SetConnectionValidator(connectionValidator{r.Transport})
+	r.acceptor.SetConnectionValidator(connectionValidator{pool: r.Transport, allowedIPs: r.clientIPs, observer: r.Observer})
 	if err := r.acceptor.Start(); err != nil {
 		r.cleanup(false)
 		r.stopped = true
@@ -201,7 +209,7 @@ func (r *Runtime) Start() error {
 
 func (r *Runtime) Snapshot() observability.Snapshot {
 	g := r.Router
-	s := observability.Snapshot{Ready: g.Ready() && r.Stores.Healthy(), Forwarded: g.Counters.Forwarded.Load(), Failed: g.Counters.Failed.Load(), Dropped: g.Counters.Dropped.Load(), Recipients: g.Counters.Recipients.Load(), Replays: r.Observer.Replay.Load(), EngineErrors: r.Observer.EngineErrors.Load(), AuthFailures: r.Observer.AuthFailures.Load(), Cleanups: r.Stores.CleanupCount.Load(), QueueBytes: g.QueueBytes(), QueueDepth: g.QueueDepth(), StoreBytes: r.Stores.CachedUsage()}
+	s := observability.Snapshot{Ready: g.Ready() && r.Stores.Healthy(), Forwarded: g.Counters.Forwarded.Load(), Failed: g.Counters.Failed.Load(), Dropped: g.Counters.Dropped.Load(), Recipients: g.Counters.Recipients.Load(), Replays: r.Observer.Replay.Load(), EngineErrors: r.Observer.EngineErrors.Load(), AuthFailures: r.Observer.AuthFailures.Load(), IPDenials: r.Observer.IPDenials.Load(), Cleanups: r.Stores.CleanupCount.Load(), QueueBytes: g.QueueBytes(), QueueDepth: g.QueueDepth(), StoreBytes: r.Stores.CachedUsage()}
 	s.Blocked = g.Counters.Blocked.Load()
 	s.StoreWarning = s.StoreBytes >= r.storeWarn
 	s.EngineQueueBytes = r.Pending.Usage()
@@ -255,12 +263,6 @@ func (r *Runtime) cleanup(started bool) error {
 		return errors.New("gateway: durable shutdown failed; inspect state before restart")
 	}
 	return nil
-}
-
-type connectionValidator struct{ pool *transport.Pool }
-
-func (v connectionValidator) Validate(c net.Conn, id quickfix.SessionID) error {
-	return v.pool.Bind(id.String(), c)
 }
 
 type trackingFactory struct {

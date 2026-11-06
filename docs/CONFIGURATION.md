@@ -37,6 +37,7 @@ Unknown YAML fields are rejected. Durations use Go notation such as `60s` or `8h
 | `downstream.clients[].sender_comp_id` | Required client FIX identity. |
 | `downstream.clients[].disabled`, `read_only` | Both false; disable the client or prohibit its submissions. |
 | `downstream.clients[].password` | Unset secret reference; required for enabled clients on non-loopback listeners. |
+| `downstream.clients[].allowed_ips` | Omitted: no source IP restriction. `[]`: deny all sources. Otherwise up to 128 distinct IPv4/IPv6 addresses or CIDR ranges. |
 | `downstream.clients[].receive_message_types` | Omitted inherits global fanout; `[]` receives no upstream application messages. |
 | `downstream.duplicate_connection_policy` | `reject-new`; only supported policy. |
 | `fanout.mode` | `live-only`; only supported mode. |
@@ -50,6 +51,29 @@ Unknown YAML fields are rejected. Durations use Go notation such as `60s` or `8h
 | `retention.session_limit_bytes` | `67108864`; per-session limit. |
 | `logging.mode` | `metadata`; only supported mode. |
 | `logging.redact_tags` | Empty; metadata mode omits all message bodies regardless of this list. |
+
+## Per-client source IP restrictions
+
+Use `allowed_ips` to restrict a client's FIX session to particular source addresses. It applies to writable and read-only clients, with or without TLS. For example, merge this entry into `downstream.clients`:
+
+```yaml
+- sender_comp_id: CLIENT_A
+  password: {env: FIX_CLIENT_A_PASSWORD}
+  allowed_ips:
+    - "192.0.2.10"
+    - "198.51.100.0/24"
+    - "2001:db8::/48"
+```
+
+Replace these documentation addresses with the client's actual source IPs. Omit `allowed_ips` for no IP restriction; an explicit empty list (`[]`) denies all sources. Existing configurations keep their behavior. IP restrictions supplement the session allowlist and password checks; they do not replace authentication or encrypt traffic. Restart the gateway after changing the configuration.
+
+Use a build containing this feature; older binaries reject the new YAML key. Local source changes do not update previously published container images.
+
+Matching uses the TCP peer IP the gateway actually sees, before the connection is bound to the claimed FIX session or its Logon is processed. A mismatch closes that connection without a FIX Logout response or session sequence consumption. No FIX fields, forwarded-address headers or PROXY protocol data are trusted as source addresses. For direct internet connections this is normally the client's public egress address. NAT, Docker networking, VPNs and TCP proxies can change the address observed by the gateway; confirm it from a denial log when troubleshooting. Clients sharing one public IP cannot be distinguished by IP alone.
+
+IPv4-mapped IPv6 addresses are normalized to IPv4 for matching. Mapped IPv4 CIDR prefixes must have at least 96 prefix bits; ordinary IPv4 CIDR notation is simpler. `::/0` matches IPv6 sources; use `0.0.0.0/0` for all IPv4 sources. Hostnames, wildcard patterns, ports, scoped IPv6 zones and invalid ranges fail configuration validation. Equivalent duplicate entries are rejected after CIDR host bits are masked. Separate overlapping ranges are allowed.
+
+Each denied attempt for a configured client increments `fix_mux_ip_denials_total`. The `connection_ip_denied` warning contains `source_ip`, a hashed `session` label and a fixed reason. If the socket address is unavailable it fails closed and logs `source_ip: "unknown"`. The label identifies the claimed session, not an authenticated client. IP-denial logs have a separate global limit of one event per second; the next emitted event includes `suppressed_denials`. Every denial is counted, but suppressed source IPs are not retained. This limits log volume, not connection attempts. Raw IPs appear only in these diagnostic logs, not metric labels; protect log access and configure retention accordingly. Unknown sessions and TLS failures before the FIX session is identified are not included in this IP-policy counter.
 
 ## Configure a FIX session multiplexer for your counterparty
 

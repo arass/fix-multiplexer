@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"io"
 	"net"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"fix-multiplexer/internal/config"
+	"fix-multiplexer/internal/observability"
 	"fix-multiplexer/internal/testfix"
 	"github.com/quickfixgo/quickfix"
 )
@@ -193,9 +195,13 @@ func TestNetworkListenerRequiresAuthenticatedLogon(t *testing.T) {
 	for _, tc := range []struct {
 		name, password   string
 		secure, accepted bool
+		ipDenied         bool
+		denyAll          bool
 	}{
-		{"tls-missing", "", true, false}, {"tls-wrong", "synthetic-wrong", true, false}, {"tls-valid", "synthetic-valid", true, true},
-		{"plaintext-missing", "", false, false}, {"plaintext-wrong", "synthetic-wrong", false, false}, {"plaintext-valid", "synthetic-valid", false, true},
+		{"tls-missing", "", true, false, false, false}, {"tls-wrong", "synthetic-wrong", true, false, false, false}, {"tls-valid", "synthetic-valid", true, true, false, false},
+		{"plaintext-missing", "", false, false, false, false}, {"plaintext-wrong", "synthetic-wrong", false, false, false, false}, {"plaintext-valid", "synthetic-valid", false, true, false, false},
+		{"tls-ip-denied", "synthetic-valid", true, false, true, false}, {"plaintext-ip-denied", "synthetic-valid", false, false, true, false},
+		{"tls-deny-all", "synthetic-valid", true, false, true, true}, {"plaintext-deny-all", "synthetic-valid", false, false, true, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -221,9 +227,17 @@ func TestNetworkListenerRequiresAuthenticatedLogon(t *testing.T) {
 				c.Downstream.TLS = config.TLS{CertFile: cert, KeyFile: key}
 			}
 			c.Downstream.Clients[0].Password.Env = "FIX_TEST_REMOTE_PASSWORD"
+			c.Downstream.Clients[0].AllowedIPs = []string{"127.0.0.0/8"}
+			if tc.ipDenied {
+				c.Downstream.Clients[0].AllowedIPs = []string{"192.0.2.1"}
+			}
+			if tc.denyAll {
+				c.Downstream.Clients[0].AllowedIPs = []string{}
+			}
 			_, port, _ := net.SplitHostPort(upstream.Addr().String())
 			c.Upstream.Port, _ = strconv.Atoi(port)
-			r, err := New(c)
+			events := ipDenialEvents{events: make(chan map[string]any, 4)}
+			r, err := New(c, observability.New(events))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -301,8 +315,40 @@ func TestNetworkListenerRequiresAuthenticatedLogon(t *testing.T) {
 					}
 				}
 			}
+			if tc.ipDenied {
+				event := wait(t, ctx, events.events)
+				if r.Snapshot().IPDenials != 1 || r.Snapshot().AuthFailures != 0 || event["source_ip"] != "127.0.0.1" || event["session"] == nil || strings.Contains(fmtEvent(event), "synthetic-valid") {
+					t.Fatal("IP rejection was not logged/counted safely before password authentication")
+				}
+				id := quickfix.SessionID{BeginString: "FIX.4.4", SenderCompID: c.Downstream.Target, TargetCompID: "CLIENT"}
+				sender, senderErr := quickfix.GetExpectedSenderNum(id)
+				target, targetErr := quickfix.GetExpectedTargetNum(id)
+				if senderErr != nil || targetErr != nil || sender != 1 || target != 1 {
+					t.Fatal("IP-denied Logon consumed session sequence numbers")
+				}
+			} else if r.Snapshot().IPDenials != 0 {
+				t.Fatal("permitted IP counted as denied")
+			}
 		})
 	}
+}
+
+type ipDenialEvents struct{ events chan map[string]any }
+
+func (w ipDenialEvents) Write(data []byte) (int, error) {
+	var event map[string]any
+	if json.Unmarshal(data, &event) == nil && event["msg"] == "connection_ip_denied" {
+		select {
+		case w.events <- event:
+		default:
+		}
+	}
+	return len(data), nil
+}
+
+func fmtEvent(event map[string]any) string {
+	data, _ := json.Marshal(event)
+	return string(data)
 }
 
 func TestUpstreamTLSVerifiesIdentity(t *testing.T) {
