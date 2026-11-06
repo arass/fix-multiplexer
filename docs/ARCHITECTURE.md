@@ -10,6 +10,8 @@ Optional per-client `allowed_ips` is checked against the TCP peer IP in the engi
 
 ## Message handling and boundaries
 
+Optional file outputs subscribe directly to upstream application callbacks, independently of network clients' logged-on state. They inherit or narrow the global fanout type policy and obey the global deny list. Each output owns a bounded queue and a single file writer; it has no FIX identity, listener, sequences or resend store. JSONL records preserve the upstream snapshot plus explicit original `PossDupFlag (43)`, `OrigSendingTime (122)` and upstream sequence metadata. Downstream frames continue to be reconstructed independently. Admin callbacks, gateway-generated notices and outbound replay callbacks are excluded from file capture. See [file output semantics](FILE_OUTPUTS.md).
+
 Confirmed policy: deliver valid inbound PossDup application messages; the flag is not a reason to discard them. Outbound replay callbacks must not initiate a second routing operation. Duplicate business delivery remains possible and clients must tolerate it.
 
 If forwarding cannot proceed, the gateway returns an identified FIX BusinessMessageReject where possible. This is not a venue execution report or acceptance, and a failed send can have an uncertain outcome.
@@ -46,6 +48,7 @@ A single upstream worker serializes application submissions; each downstream ses
 | Upstream reconnects with gap | Rely on upstream engine's FIX resend protocol; forward valid inbound PossDup messages; outbound replay callbacks do not initiate business dispatch. |
 | Gateway crashes | Durable stores recover assigned sequences and replay-eligible traffic, but there may be an ambiguous in-flight send window. No exactly-once guarantee. |
 | One fanout target fails | Other targets still receive reports; failure is logged/metricized. No atomicity guarantee. |
+| File capture queue/storage fails | The affected output latches unhealthy and counts failed/discarded captures; readiness fails and a metadata diagnostic is emitted. Normal FIX routing and other outputs continue. Fix/restart is required; no silent offline catch-up is implied. |
 | Stale session cleaned | Only offline stores are eligible; session must be reset/reprovisioned on next use in a mutually agreed way. |
 | Store full/corrupt | Fail closed or disable affected session, do not silently erase required replay data while implying FIX recovery remains intact. |
 
@@ -66,7 +69,7 @@ Current policy:
 
 ## Readiness
 
-`/live` checks that the daemon process serves requests. `/ready` requires upstream FIX `LOGGED_ON`, running routing workers, and healthy required stores. A disconnected downstream client does not make the entire service unready. The management listener must bind to loopback.
+`/live` checks that the daemon process serves requests. `/ready` requires upstream FIX `LOGGED_ON`, running routing workers, healthy required stores and healthy configured file outputs. A disconnected downstream client does not make the entire service unready. The management listener must bind to loopback.
 
 ## Protocol assumptions
 

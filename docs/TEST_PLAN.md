@@ -6,6 +6,8 @@ The goal is comprehensive coverage of **our code and guarantees**, not testing Q
 
 ## Unit tests: table-driven, fake engine, fake clock and store
 
+File output coverage must include omitted/empty receive lists, global deny precedence, strict schema and aggregate resource/path bounds; byte-exact JSON/base64 capture; absent/N/Y upstream duplicate flags and original sending time; original session metadata isolated from new network frames; queue-byte/message saturation, write/sync/close/rotation/retention failures, file leases and symlink/foreign-file rejection; startup failure cleanup; readiness/metrics and metadata-only errors; deterministic size/day rotation, restart, concurrent publish/close and healthy draining. Tests inject storage and clocks rather than relying on actual disk failure or sleeps.
+
 | ID | Area | Tests and expected result |
 |---|---|---|
 | U01 | Config | Valid sample parses; defaults correct; malformed YAML, missing endpoint, duplicate session IDs, same source/dest IDs, invalid port, empty fanout allowlist, negative TTL, invalid size fail with specific errors. An explicit empty upstream allowlist blocks all submissions. |
@@ -34,6 +36,8 @@ The goal is comprehensive coverage of **our code and guarantees**, not testing Q
 | U22 | Recovery adapter | Valid inbound application messages with PossDup are forwarded; outbound replay callbacks never initiate new routing; no application-level deduplication or exactly-once guarantee. |
 
 ## Integration tests: real sockets, self-hosted mock FIX peers
+
+File subscribers must capture while no downstream clients are logged on. A genuine upstream sequence gap/replay must reach the file with tag 43=Y and tag 122 retained; a downstream engine resend must not produce another capture. Preserve capture across clean gateway restart without appending to old files, and verify independent downstream replay/framing. Filesystem and container tests use synthetic traffic and dedicated directories.
 
 | ID | Scenario | Assertions |
 |---|---|---|
@@ -80,7 +84,7 @@ Additional confirmed regressions: a valid inbound PossDup application message is
 - Fast tests: `go test ./... -short` (do not require Docker or network beyond loopback in explicitly marked tests).
 - Full unit + integration: `go test -tags=integration ./...`.
 - Race, including integration: `go test -race -tags=integration ./...`.
-- Fast coverage: `go test -short -coverprofile=coverage.out ./...`, then `go run ./scripts/check-coverage.go coverage.out`; the gate requires **>=90%** for config, gateway, FIX adapter, sessions and retention. Tagged socket integration and soak tests are not included in this fast coverage measurement. Coverage percentage alone does not replace the matrix above.
+- Fast coverage: `go test -short -coverprofile=coverage.out ./...`, then `go run ./scripts/check-coverage.go coverage.out`; the gate requires **>=90%** for config, gateway, FIX adapter, sessions, retention and fileoutput. Tagged socket integration and soak tests are not included in this fast coverage measurement. Coverage percentage alone does not replace the matrix above.
 - Static checks: `go vet ./...`, formatter and lint (choose a documented reproducible linter configuration).
 - Container smoke: build container, launch mock venue + gateway + 3 clients, run I01-I05 and readiness checks without credentials.
 - Unit tests must not reach real brokers, rely on private SDKs or require AWS/Redis/MySQL.

@@ -13,6 +13,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"fix-multiplexer/internal/fileoutput"
 )
 
 type Recorder struct {
@@ -92,6 +94,10 @@ func (r *Recorder) errorEvent(event, id, detail string) {
 }
 func (r *Recorder) Operational(outcome string) { r.log.Info("gateway", "outcome", outcome) }
 
+func (r *Recorder) OutputFailure(name, reason string) {
+	r.log.Error("file_output_failed", "output", Label(name), "reason", reason)
+}
+
 type Session struct {
 	ID                string
 	LoggedOn, Enabled bool
@@ -105,6 +111,7 @@ type Snapshot struct {
 	EngineQueueBytes                                                                      int64
 	StoreWarning                                                                          bool
 	Sessions                                                                              []Session
+	FileOutputs                                                                           []fileoutput.Snapshot
 }
 type Provider interface{ Snapshot() Snapshot }
 type ProviderFunc func() Snapshot
@@ -152,6 +159,10 @@ func Handler(p Provider) http.Handler {
 		fmt.Fprintf(w, "fix_mux_engine_queue_bytes %d\n", s.EngineQueueBytes)
 		for _, session := range s.Sessions {
 			fmt.Fprintf(w, "fix_mux_session_logged_on{session=%q} %d\nfix_mux_session_enabled{session=%q} %d\n", Label(session.ID), boolean(session.LoggedOn), Label(session.ID), boolean(session.Enabled))
+		}
+		for _, output := range s.FileOutputs {
+			label := Label(output.Name)
+			fmt.Fprintf(w, "fix_mux_file_output_healthy{output=%q} %d\nfix_mux_file_output_written_total{output=%q} %d\nfix_mux_file_output_dropped_total{output=%q} %d\nfix_mux_file_output_queue_bytes{output=%q} %d\nfix_mux_file_output_queue_depth{output=%q} %d\n", label, boolean(output.Healthy), label, output.Written, label, output.Dropped, label, output.QueueBytes, label, output.QueueDepth)
 		}
 	})
 	return mux

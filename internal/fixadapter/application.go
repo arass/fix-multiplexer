@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"fix-multiplexer/internal/config"
+	"fix-multiplexer/internal/fileoutput"
 	"fix-multiplexer/internal/gateway"
 	"fix-multiplexer/internal/observability"
 	"fix-multiplexer/internal/retention"
@@ -30,6 +31,7 @@ type Application struct {
 	Stores                                   *retention.Manager
 	Observer                                 *observability.Recorder
 	Pending                                  *transport.Pending
+	FileOutputs                              interface{ Publish(fileoutput.Message) }
 }
 
 func (a *Application) OnCreate(id quickfix.SessionID) { a.created = append(a.created, id) }
@@ -177,6 +179,12 @@ func (a *Application) FromApp(m *quickfix.Message, id quickfix.SessionID) quickf
 	}
 	if id == a.Upstream {
 		err := a.Router.Broadcast(msg)
+		if a.FileOutputs != nil {
+			sequence, _ := m.Header.GetInt(34)
+			possDup, _ := m.Header.GetString(43)
+			originalTime, _ := m.Header.GetString(122)
+			a.FileOutputs.Publish(fileoutput.Message{MsgType: msg.Type(), UpstreamSeqNum: sequence, PossDupFlag: possDup, OrigSendingTime: originalTime, FIX: msg.raw})
+		}
 		outcome := "fanout_enqueued"
 		if err != nil {
 			outcome = "policy_drop"

@@ -91,6 +91,8 @@ docker run -d --name fix-multiplexer `
 
 Add an `-e VARIABLE_NAME` for every environment credential referenced by the config. Add read-only mounts for any referenced certificates or secret files. Ensure the named volume is writable by the image's nonroot user. Preserve the volume across restarts: it contains FIX sequence state and replay history. Do not delete or reset it without coordinating session recovery with peers. Protect it as sensitive data.
 
+For file-based Drop Copy capture, add a separate writable host-directory mount and an `outputs` entry. The Go executable writes the files directly; the small runtime image needs no extra utilities. See [file output setup](FILE_OUTPUTS.md#docker-host-files), including directory permissions, rotation and possible-duplicate metadata.
+
 Check startup with `docker logs fix-multiplexer`. After editing the mounted config, restart the container with `docker restart fix-multiplexer` to load changes. If environment variables or Docker mount/port options change, recreate the container with updated options while retaining the named volume.
 
 ## Network access and clients

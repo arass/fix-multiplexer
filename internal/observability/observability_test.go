@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"fix-multiplexer/internal/fileoutput"
 )
 
 func TestMetadataNeverLogsPayloads(t *testing.T) {
@@ -20,6 +22,7 @@ func TestMetadataNeverLogsPayloads(t *testing.T) {
 	r.EngineError(id)
 	r.AuthenticationFailure(id)
 	r.Operational("live-only")
+	r.OutputFailure("synthetic-output", "write_failed")
 	if strings.Contains(out.String(), id) || strings.Contains(out.String(), "553=") || r.EngineErrors.Load() != 1 || r.AuthFailures.Load() != 1 {
 		t.Fatal("sensitive metadata leaked")
 	}
@@ -85,6 +88,7 @@ func TestAuthenticationFailuresShareErrorLogLimit(t *testing.T) {
 func TestHealthAndMetrics(t *testing.T) {
 	s := Snapshot{Ready: false, Forwarded: 2, Failed: 3, Dropped: 4, Recipients: 5, Replays: 6, EngineErrors: 7, AuthFailures: 9, IPDenials: 12, Cleanups: 8, QueueBytes: 9, QueueDepth: 10, StoreBytes: 11, StoreWarning: true, Sessions: []Session{{ID: "secret-id", LoggedOn: true, Enabled: true}}}
 	h := Handler(ProviderFunc(func() Snapshot { return s }))
+	s.FileOutputs = []fileoutput.Snapshot{{Name: "synthetic-private-output", Healthy: false, Written: 3, Dropped: 2, QueueBytes: 40, QueueDepth: 1}}
 	for _, tt := range []struct {
 		path, method string
 		status       int
@@ -98,11 +102,17 @@ func TestHealthAndMetrics(t *testing.T) {
 		if strings.Contains(w.Body.String(), "secret-id") {
 			t.Fatal("identity label leak")
 		}
+		if strings.Contains(w.Body.String(), "synthetic-private-output") {
+			t.Fatal("raw output label leaked")
+		}
 		if tt.path == "/metrics" && tt.method == "GET" && !strings.Contains(w.Body.String(), "fix_mux_auth_failures_total 9") {
 			t.Fatal("authentication failure metric missing")
 		}
 		if tt.path == "/metrics" && tt.method == "GET" && !strings.Contains(w.Body.String(), "fix_mux_ip_denials_total 12") {
 			t.Fatal("IP denial metric missing")
+		}
+		if tt.path == "/metrics" && tt.method == "GET" && !strings.Contains(w.Body.String(), "fix_mux_file_output_dropped_total") {
+			t.Fatal("file output metrics missing")
 		}
 	}
 	s.Ready = true

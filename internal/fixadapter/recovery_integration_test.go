@@ -3,13 +3,16 @@
 package fixadapter
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"net"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
 
+	"fix-multiplexer/internal/config"
 	"fix-multiplexer/internal/testfix"
 	"github.com/quickfixgo/quickfix"
 )
@@ -41,6 +44,7 @@ func TestPersistentRestartAndIndependentResend(t *testing.T) {
 	defer muxListener.Close()
 	c := runtimeConfig(t)
 	c.Downstream.Clients[0].AllowedIPs = []string{"127.0.0.1"}
+	c.Outputs = []config.Output{{Name: "capture", Type: "file", Directory: filepath.Join(t.TempDir(), "capture"), ReceiveMessageTypes: []string{"8"}}}
 	_, port, _ := net.SplitHostPort(venueListener.Addr().String())
 	c.Upstream.Port, _ = strconv.Atoi(port)
 	c.Downstream.Listen = muxListener.Addr().String()
@@ -117,6 +121,9 @@ func TestPersistentRestartAndIndependentResend(t *testing.T) {
 	if r.Pending.Usage() != 0 {
 		t.Fatal("engine queue credits did not follow actual wire sends")
 	}
+	if records := readCaptureRecords(t, c.Outputs[0].Directory); len(records) != 1 {
+		t.Fatal("downstream resend created another upstream capture", len(records))
+	}
 	wait(t, ctx, client.Logouts)
 	wait(t, ctx, venue.Logouts)
 	r, err = New(c)
@@ -168,6 +175,35 @@ func TestPersistentRestartAndIndependentResend(t *testing.T) {
 	}
 	if !got["recovered-gap"] || !got["after-gap"] {
 		t.Fatal("genuine replay lost", got)
+	}
+	if err = r.Stop(); err != nil {
+		t.Fatal(err)
+	}
+	records := readCaptureRecords(t, c.Outputs[0].Directory)
+	if len(records) != 4 {
+		t.Fatal("unexpected upstream capture count", len(records))
+	}
+	var recovered bool
+	for _, record := range records {
+		parsed := quickfix.NewMessage()
+		if err = quickfix.ParseMessage(parsed, bytes.NewBuffer(record.FIX)); err != nil {
+			t.Fatal(err)
+		}
+		id, _ := parsed.Body.GetString(11)
+		if record.MsgType != "8" {
+			t.Fatal("admin captured")
+		}
+		if id == "recovered-gap" {
+			dup, _ := parsed.Header.GetString(43)
+			original, _ := parsed.Header.GetString(122)
+			if record.PossDupFlag != "Y" || dup != "Y" || record.OrigSendingTime == "" || record.OrigSendingTime != original || record.UpstreamSeqNum != missingSeq {
+				t.Fatal("genuine upstream replay metadata missing from export")
+			}
+			recovered = true
+		}
+	}
+	if !recovered {
+		t.Fatal("recovered report absent from file output")
 	}
 }
 

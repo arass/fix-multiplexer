@@ -13,6 +13,7 @@ Each client has its own FIX session, sequence numbers and resend history. The ga
 - Configure message types globally and per client. A read-only subscriber cannot submit application messages upstream.
 - Receive a best-effort Drop Copy-style feed of messages actually supplied by the counterparty. This is not a venue-wide feed or authoritative audit trail.
 - Use persistent stores, configurable retention, health checks, optional TLS, separate downstream passwords and per-client source IP restrictions.
+- Export selected upstream messages through an optional [Drop Copy file output](docs/FILE_OUTPUTS.md), preserving upstream possible-duplicate metadata.
 
 ## When to use a FIX session multiplexer
 
@@ -80,6 +81,7 @@ Optionally restrict each client with [`allowed_ips`](docs/CONFIGURATION.md#per-c
 
 - [Docker installation and configuration](docs/DOCKER_SETUP.md)
 - [FIX configuration, credentials and TLS](docs/CONFIGURATION.md)
+- [Drop Copy file output and Docker host files](docs/FILE_OUTPUTS.md)
 - [Architecture and delivery semantics](docs/ARCHITECTURE.md)
 - [Operations, recovery and troubleshooting](docs/OPERATIONS.md)
 - [Test plan and acceptance status](docs/TEST_PLAN.md) · [test results](docs/TEST_STATUS.md)

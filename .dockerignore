@@ -4,6 +4,7 @@
 .tools
 .gocache
 state
+dropcopy
 config/local.yaml
 coverage.out
 *.tar

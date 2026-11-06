@@ -22,6 +22,7 @@ type Config struct {
 	Fanout     Fanout     `yaml:"fanout"`
 	Retention  Retention  `yaml:"retention"`
 	Logging    Logging    `yaml:"logging"`
+	Outputs    []Output   `yaml:"outputs,omitempty"`
 }
 
 type Service struct {
@@ -311,7 +312,7 @@ func (c Config) Validate() error {
 	if c.Downstream.TLS.RequireClientCert && (!c.Downstream.TLSEnabled || c.Downstream.TLS.CAFile == "") {
 		return invalid("downstream mTLS requires TLS and CA file")
 	}
-	return nil
+	return c.validateOutputs()
 }
 
 func ipAddress(address string) bool {

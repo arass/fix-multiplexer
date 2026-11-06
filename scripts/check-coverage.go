@@ -57,7 +57,7 @@ func main() {
 		os.Exit(1)
 	}
 	failed := false
-	for _, name := range []string{"config", "gateway", "fixadapter", "sessions", "retention"} {
+	for _, name := range []string{"config", "gateway", "fixadapter", "sessions", "retention", "fileoutput"} {
 		v := totals["fix-multiplexer/internal/"+name]
 		if v.total == 0 || v.covered*100 < v.total*90 {
 			fmt.Fprintf(os.Stderr, "coverage below 90%% or missing: %s\n", name)

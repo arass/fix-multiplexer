@@ -16,6 +16,8 @@ The demo uses synthetic data and temporary stores. The daemon uses configured du
 
 ## Recovery and eight-hour history
 
+For an optional file subscriber, see [file outputs](FILE_OUTPUTS.md). Monitor `fix_mux_file_output_healthy` and `fix_mux_file_output_dropped_total`; a `file_output_failed` event identifies a capture failure without logging its payload. Such failures make `/ready` false while existing FIX routing continues. A clean shutdown drains accepted capture work; a forced exit may leave queued data unwritten or a partial final record. Output-directory leases and retention are separate from FIX session stores. Preserve both kinds of data during recovery and remove a stale `.file-output.lock` only after confirming the previous process is gone.
+
 Each FIX session owns its sequences and outbound history. Valid inbound PossDup application messages are forwarded, with new session framing. Outbound replay callbacks never create new routing. Clients must handle duplicate business messages.
 
 `retention.downstream_replay_window` defaults to 8h. If a downstream resend asks for an application message older than that window, the gateway fails recovery and persists a retired marker. It does not silently gap-fill away expired business history or delete an open store. A retired session requires an explicit coordinated reset, or a new allowlisted SessionID. Offline-period fanout is never accumulated.

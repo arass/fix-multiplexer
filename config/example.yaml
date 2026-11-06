@@ -89,3 +89,13 @@ logging:
   mode: metadata # logs omit FIX message contents and credentials
   # Sensitive tags; metadata mode omits all message bodies, not just these tags.
   redact_tags: ["89", "91", "96", "553", "554", "925", "1402", "1404"]
+# Optional file subscriber: add this top-level section to enable capture.
+# See docs/FILE_OUTPUTS.md. The dedicated directory contains sensitive FIX data.
+# outputs:
+#   - name: dropcopy_file
+#     type: file
+#     directory: ./dropcopy # mount a writable host folder here in Docker
+#     format: jsonl
+#     receive_message_types: ["8", "9"] # omitted inherits fanout list; [] receives none
+#     max_file_bytes: 67108864 # 64 MiB per file; rotates sooner on a UTC day change
+#     max_files: 16 # oldest closed captures are removed on rotation/startup

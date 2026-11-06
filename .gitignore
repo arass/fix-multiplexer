@@ -3,6 +3,7 @@
 .codex/config.toml
 .gocache/
 state/
+dropcopy/
 config/local.yaml
 coverage.out
 coverage

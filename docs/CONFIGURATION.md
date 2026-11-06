@@ -51,6 +51,7 @@ Unknown YAML fields are rejected. Durations use Go notation such as `60s` or `8h
 | `retention.session_limit_bytes` | `67108864`; per-session limit. |
 | `logging.mode` | `metadata`; only supported mode. |
 | `logging.redact_tags` | Empty; metadata mode omits all message bodies regardless of this list. |
+| `outputs` | Omitted: no file capture. Optional file subscribers with their own receive filters, bounded queues, size/day rotation and file-count retention. See [file output configuration](FILE_OUTPUTS.md). |
 
 ## Per-client source IP restrictions
 
@@ -103,7 +104,7 @@ The gateway initiates **one** FIX 4.4 session to your counterparty and accepts s
    go run ./cmd/fix-multiplexer -config config/local.yaml -probe metrics
    ```
 
-   `/live` indicates that management is serving. `/ready` succeeds when the upstream FIX session is logged on and required routing and storage are healthy; it does not require every downstream client to be connected. If readiness fails, check the endpoint, CompIDs, credentials, TLS trust, and counterparty session status. If a client cannot log on, also check its allowlisted SenderCompID, TargetCompID, password and sequence numbers. Logs contain metadata rather than FIX payloads.
+   `/live` indicates that management is serving. `/ready` succeeds when the upstream FIX session is logged on and required routing, storage and configured file outputs are healthy; it does not require every downstream client to be connected. If readiness fails, check the endpoint, CompIDs, credentials, TLS trust, counterparty session status and any `file_output_failed` event. If a client cannot log on, also check its allowlisted SenderCompID, TargetCompID, password and sequence numbers. Logs contain metadata rather than FIX payloads.
 
 ### FIX credentials and TLS configuration
 
